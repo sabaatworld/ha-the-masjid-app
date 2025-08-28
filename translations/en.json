@@ -1,0 +1,94 @@
+{
+  "title": "The Masjid App",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set Up The Masjid App",
+        "data": {
+          "masjid_id": "Masjid ID",
+          "refresh_interval_hours": "Refresh Interval",
+          "media_player": "Media Player for Azan",
+          "media_data": "Azan Media Content (Optional)",
+          "media_content_length": "Azan Duration",
+          "media_players_to_pause": "Media Players to Pause During Azan",
+          "action_water_recirculation": "Water Recirculation Action",
+          "action_water_recirculation_params": "Water Recirculation Action Parameters",
+          "action_car_start": "Car Start Action",
+          "action_car_start_params": "Car Start Action Parameters",
+          "presence_sensors": "Presence Sensors",
+          "tts_entity": "TTS Entity for Ramadan Reminder"
+        },
+        "data_description": {
+          "masjid_id": "The numeric ID of your masjid from themasjidapp.net. You can find this in the URL when viewing your masjid's page (e.g., themasjidapp.net/123 where 123 is the Masjid ID).",
+          "refresh_interval_hours": "How frequently to fetch updated prayer times from the server. Choose between 1-12 hours. More frequent updates ensure accurate times but use more data. Recommended: 6 hours for most users.",
+          "media_player": "Select the media player entity that will play the Azan audio. This should be a media_player entity (e.g., living_room_speaker, bedroom_tv). Leave empty if you don't want Azan playback.",
+          "media_data": "Select the media content to play for Azan (optional). This can be a local file, URL, or media source. Leave empty to disable Azan audio playback. The media selector will help you browse available options and store the complete media information.",
+          "media_content_length": "The duration of your Azan audio file in seconds. This is used to automatically restore volume and resume other media players after the Azan finishes playing. Set this accurately for proper timing.",
+          "media_players_to_pause": "Select media players that should be paused while Azan is playing. These will be automatically paused when Azan starts and resumed after it finishes. Useful for TVs, radios, or other audio sources.",
+          "action_water_recirculation": "The action to run before prayers to start water recirculation. Format: 'domain.service' (e.g., 'script.start_pump', 'switch.turn_on', 'climate.set_temperature'). Leave empty to disable.",
+          "action_water_recirculation_params": "Additional parameters for the water recirculation action as a JSON object. Example: {'entity_id': 'switch.pump', 'temperature': 25}. Use this to pass specific data to your action.",
+          "action_car_start": "The action to run before prayers to start your car (for remote start systems). Format: 'domain.service' (e.g., 'ad_drone.start_car', 'script.warm_car'). Leave empty to disable.",
+          "action_car_start_params": "Additional parameters for the car start action as a JSON object. Example: {'duration': 10, 'temperature': 22}. Use this to pass specific data to your car start action.",
+          "presence_sensors": "Select presence sensors (binary sensors, device trackers, or person entities) that indicate when someone is home. Water recirculation and car start actions will only run when ALL selected sensors indicate presence. Leave empty to always run actions.",
+          "tts_entity": "Select a text-to-speech entity for Ramadan Maghrib reminders. This will announce when Maghrib prayer is approaching during Ramadan. Examples: 'tts.google_translate_say', 'tts.cloud_say'. Leave empty to disable."
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure The Masjid App",
+        "data": {
+          "refresh_interval_hours": "Refresh Interval",
+          "media_player": "Media Player for Azan",
+          "media_data": "Azan Media Content (Optional)",
+          "media_content_length": "Azan Duration",
+          "media_players_to_pause": "Media Players to Pause During Azan",
+          "action_water_recirculation": "Water Recirculation Action",
+          "action_water_recirculation_params": "Water Recirculation Action Parameters",
+          "action_car_start": "Car Start Action",
+          "action_car_start_params": "Car Start Action Parameters",
+          "presence_sensors": "Presence Sensors",
+          "tts_entity": "TTS Entity for Ramadan Reminder"
+        },
+        "data_description": {
+          "refresh_interval_hours": "How frequently to fetch updated prayer times from the server. Choose between 1-12 hours. More frequent updates ensure accurate times but use more data. Recommended: 6 hours for most users.",
+          "media_player": "Select the media player entity that will play the Azan audio. This should be a media_player entity (e.g., living_room_speaker, bedroom_tv). Leave empty if you don't want Azan playback.",
+          "media_data": "Select the media content to play for Azan (optional). This can be a local file, URL, or media source. Leave empty to disable Azan audio playback. The media selector will help you browse available options and store the complete media information.",
+          "media_content_length": "The duration of your Azan audio file in seconds. This is used to automatically restore volume and resume other media players after the Azan finishes playing. Set this accurately for proper timing.",
+          "media_players_to_pause": "Select media players that should be paused while Azan is playing. These will be automatically paused when Azan starts and resumed after it finishes. Useful for TVs, radios, or other audio sources.",
+          "action_water_recirculation": "The action to run before prayers to start water recirculation. Format: 'domain.service' (e.g., 'script.start_pump', 'switch.turn_on', 'climate.set_temperature'). Leave empty to disable.",
+          "action_water_recirculation_params": "Additional parameters for the water recirculation action as a JSON object. Example: {'entity_id': 'switch.pump', 'temperature': 25}. Use this to pass specific data to your action.",
+          "action_car_start": "The action to run before prayers to start your car (for remote start systems). Format: 'domain.service' (e.g., 'ad_drone.start_car', 'script.warm_car'). Leave empty to disable.",
+          "action_car_start_params": "Additional parameters for the car start action as a JSON object. Example: {'duration': 10, 'temperature': 22}. Use this to pass specific data to your car start action.",
+          "presence_sensors": "Select presence sensors (binary sensors, device trackers, or person entities) that indicate when someone is home. Water recirculation and car start actions will only run when ALL selected sensors indicate presence. Leave empty to always run actions.",
+          "tts_entity": "Select a text-to-speech entity for Ramadan Maghrib reminders. This will announce when Maghrib prayer is approaching during Ramadan. Examples: 'tts.google_translate_say', 'tts.cloud_say'. Leave empty to disable."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to themasjidapp.net",
+      "invalid_masjid_id": "Invalid Masjid ID - server returned an error",
+      "unknown": "Unexpected error occurred"
+    },
+    "abort": {
+      "already_configured": "Integration already configured for this Masjid ID",
+      "reconfigure_successful": "Successfully updated The Masjid App configuration."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "last_fetch_time": {
+        "name": "Last Fetch Time"
+      },
+      "last_cache_time": {
+        "name": "Last Cache Time"
+      },
+      "prayer_time": {
+        "name": "{prayer} {type}"
+      }
+    },
+    "button": {
+      "force_refresh": {
+        "name": "Force Refresh"
+      }
+    }
+  }
+}

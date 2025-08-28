@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.build/
+.eggs/
+*.egg-info/
+
+# Virtual env
+.venv/
+venv/
+ENV/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Home Assistant
+.storage/
+
+# Logs
+*.log

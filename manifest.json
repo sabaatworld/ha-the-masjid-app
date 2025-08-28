@@ -1,0 +1,15 @@
+{
+  "domain": "ha_the_masjid_app",
+  "name": "The Masjid App",
+  "version": "0.1.0",
+  "documentation": "https://github.com/sabaatworld/ha_the_masjid_app",
+  "issue_tracker": "https://github.com/sabaatworld/ha_the_masjid_app/issues",
+  "requirements": [],
+  "dependencies": [],
+  "codeowners": [
+    "@sabaatworld"
+  ],
+  "iot_class": "cloud_polling",
+  "integration_type": "device",
+  "config_flow": true
+}
