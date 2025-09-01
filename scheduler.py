@@ -3,10 +3,10 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime, timedelta
-from typing import Any, Callable
+from typing import Any
 
 from homeassistant.core import HomeAssistant, CALLBACK_TYPE
-from homeassistant.helpers.event import async_track_point_in_time
+from homeassistant.helpers.event import async_track_time_change, async_call_later
 
 from .const import (
     PRAYERS,
@@ -34,12 +34,14 @@ class MasjidScheduler:
         self._handles: list[CALLBACK_TYPE] = []
 
     def clear_schedules(self) -> None:
+        _LOGGER.debug("Clearing %d existing schedules", len(self._handles))
         for h in self._handles:
             try:
                 h()
             except Exception:  # noqa: BLE001
                 pass
         self._handles.clear()
+        _LOGGER.debug("All schedules cleared")
 
     def schedule_from_data(self, data: dict[str, Any]) -> None:
         self.clear_schedules()
@@ -48,17 +50,46 @@ class MasjidScheduler:
         # Map to appdaemon naming
         name_map: dict[str, str] = {"fajr": "fajr", "dhuhr": "zuhr", "asr": "asr", "maghrib": "maghrib", "isha": "isha"}
 
+        _LOGGER.debug("Starting azan scheduling process")
+        _LOGGER.debug("Received masjid data: %s", masjid)
+        _LOGGER.debug("Available azan times: %s", azan_times)
+
         now = datetime.now()
+        _LOGGER.debug("Current time: %s", now)
+
+        scheduled_count = 0
         for p in PRAYERS:
             masjid_key = name_map[p]
             azan_txt = azan_times.get(masjid_key)
+            _LOGGER.debug("Processing prayer '%s' (API key: '%s'), azan text: '%s'", p, masjid_key, azan_txt)
+
             if not azan_txt:
+                _LOGGER.debug("No azan time found for prayer '%s', skipping", p)
                 continue
-            azan_dt = parse_prayer_time(azan_txt)
-            azan_at = now.replace(hour=azan_dt.hour, minute=azan_dt.minute, second=0, microsecond=0)
-            if azan_at <= now:
-                azan_at += timedelta(days=1)
-            self._handles.append(self._repeat_daily(azan_at, lambda _p=p: self._handle_azan(_p)))
+
+            try:
+                azan_dt = parse_prayer_time(azan_txt)
+
+                # Use async_track_time_change for daily repetition - much simpler!
+                def azan_callback(_now):
+                    self.hass.async_create_task(self._handle_azan(p))
+
+                handle = async_track_time_change(
+                    self.hass,
+                    azan_callback,
+                    hour=azan_dt.hour,
+                    minute=azan_dt.minute,
+                    second=0
+                )
+                self._handles.append(handle)
+                scheduled_count += 1
+                _LOGGER.info("Successfully scheduled azan for %s at %s", p, azan_dt.strftime("%I:%M %p"))
+
+            except Exception as e:
+                _LOGGER.error("Failed to schedule azan for prayer '%s' with time '%s': %s", p, azan_txt, e)
+
+        _LOGGER.info("Azan scheduling completed. Successfully scheduled %d out of %d prayers",
+                    scheduled_count, len(PRAYERS))
 
         # For prayer times, use masjid[<prayer>] keys (zuhr for dhuhr)
         for p in PRAYERS:
@@ -76,54 +107,59 @@ class MasjidScheduler:
             prefix = self._coordinator.get_sanitized_mosque_prefix()
             car_mins_entity = f"number.{prefix}_car_start_minutes"
             car_mins = max(0, int(self._get_number(car_mins_entity, 10.0)))
-            car_at = target_at - timedelta(minutes=car_mins)
-            if car_at <= now:
-                car_at += timedelta(days=1)
-            self._handles.append(self._repeat_daily(car_at, self._handle_car_start))
+
+            if car_mins > 0:
+                car_time = target_dt - timedelta(minutes=car_mins)
+                def car_callback(_now):
+                    self.hass.async_create_task(self._handle_car_start())
+
+                handle = async_track_time_change(
+                    self.hass,
+                    car_callback,
+                    hour=car_time.hour,
+                    minute=car_time.minute,
+                    second=0
+                )
+                self._handles.append(handle)
 
             # Water recirculation offset minutes - use live value from number entity
             water_mins_entity = f"number.{prefix}_water_recirc_minutes"
             water_mins = max(0, int(self._get_number(water_mins_entity, 15.0)))
-            water_at = target_at - timedelta(minutes=water_mins)
-            if water_at <= now:
-                water_at += timedelta(days=1)
-            self._handles.append(self._repeat_daily(water_at, self._handle_water_recirc))
+
+            if water_mins > 0:
+                water_time = target_dt - timedelta(minutes=water_mins)
+                def water_callback(_now):
+                    self.hass.async_create_task(self._handle_water_recirc())
+
+                handle = async_track_time_change(
+                    self.hass,
+                    water_callback,
+                    hour=water_time.hour,
+                    minute=water_time.minute,
+                    second=0
+                )
+                self._handles.append(handle)
 
             # Ramadan reminder only for maghrib; offset minutes - use live value from number entity
             if p == "maghrib":
                 rem_mins_entity = f"number.{prefix}_ramadan_reminder_minutes"
                 rem_mins = max(0, int(self._get_number(rem_mins_entity, 2.0)))
-                rem_at = target_at - timedelta(minutes=rem_mins)
-                if rem_at <= now:
-                    rem_at += timedelta(days=1)
-                self._handles.append(self._repeat_daily(rem_at, lambda: self._handle_ramadan_reminder()))
 
-    def _repeat_daily(self, first_run: datetime, callback: Callable[[], None]) -> CALLBACK_TYPE:
-        def _schedule_next(at: datetime):
-            def _wrapped(now):  # noqa: ARG001
-                try:
-                    self.hass.async_create_task(self._safe_call(callback))
-                finally:
-                    # schedule next day
-                    next_at = at + timedelta(days=1)
-                    handle = async_track_point_in_time(self.hass, _make(next_at), next_at)
+                if rem_mins > 0:
+                    rem_time = target_dt - timedelta(minutes=rem_mins)
+                    def ramadan_callback(_now):
+                        self.hass.async_create_task(self._handle_ramadan_reminder())
+
+                    handle = async_track_time_change(
+                        self.hass,
+                        ramadan_callback,
+                        hour=rem_time.hour,
+                        minute=rem_time.minute,
+                        second=0
+                    )
                     self._handles.append(handle)
 
-            return _wrapped
 
-        def _make(at: datetime):
-            return _schedule_next(at)
-
-        handle = async_track_point_in_time(self.hass, _make(first_run), first_run)
-        return handle
-
-    async def _safe_call(self, func: Callable[[], None]) -> None:
-        try:
-            res = func()
-            if asyncio.iscoroutine(res):
-                await res
-        except Exception:  # noqa: BLE001
-            _LOGGER.exception("Scheduled task failed")
 
     # Utilities to read states
     def _is_on(self, entity_id: str) -> bool:
@@ -180,42 +216,73 @@ class MasjidScheduler:
 
     # Handlers
     async def _handle_azan(self, prayer: str) -> None:
+        _LOGGER.info("Azan handler triggered for prayer: %s", prayer)
+
         # Check if azan is enabled using live switch state (skip check for test calls)
         if prayer != "test":
             prefix = self._coordinator.get_sanitized_mosque_prefix()
             azan_switch_id = f"switch.{prefix}_azan_enabled"
             azan_enabled = self._get_switch_state(azan_switch_id, True)
+            _LOGGER.debug("Azan enabled switch (%s) state: %s", azan_switch_id, azan_enabled)
             if not azan_enabled:
+                _LOGGER.info("Azan is disabled via switch, skipping azan for %s", prayer)
                 return
+
         # Volume per prayer - use live value from number entity
         vol_percent = self._get_azan_volume(prayer)
+        _LOGGER.debug("Azan volume for %s: %s%%", prayer, vol_percent)
         if vol_percent <= 0:
+            _LOGGER.info("Azan volume is 0 for %s, skipping azan", prayer)
             return
+
         media_player = self.entry_options.get(CONF_MEDIA_PLAYER)
         media_data = self.entry_options.get(CONF_MEDIA_DATA, {})
         content_id = media_data.get("media_content_id", "")
         duration = int(self.entry_options.get(CONF_MEDIA_CONTENT_LENGTH, 0) or 0)
+
+        _LOGGER.debug("Media configuration - Player: %s, Content ID: %s, Duration: %s",
+                     media_player, content_id, duration)
+
         if not media_player or not content_id or media_player == "":
+            _LOGGER.error("Invalid media configuration - Player: %s, Content ID: %s",
+                         media_player, content_id)
             return
 
         # Save current volume
         media_player_current_state = self.hass.states.get(media_player)
+        _LOGGER.debug("Media player (%s) current state: %s", media_player,
+                     media_player_current_state.state if media_player_current_state else "Not found")
+
         previous_volume = (media_player_current_state and media_player_current_state.attributes.get("volume_level")) or 0.5
         volume_level = max(0.0, min(1.0, vol_percent / 100.0))
 
+        _LOGGER.debug("Volume settings - Previous: %.2f, Target: %.2f (from %s%%)",
+                     previous_volume, volume_level, vol_percent)
+
         # Stop if playing
         if media_player_current_state and media_player_current_state.state == "playing":
+            _LOGGER.debug("Media player is currently playing, stopping it first")
             await self.hass.services.async_call("media_player", "media_stop", {"entity_id": media_player}, blocking=True)
             await asyncio.sleep(1)
 
         # Set volume, then play
-        await self.hass.services.async_call("media_player", "volume_set", {"entity_id": media_player, "volume_level": volume_level}, blocking=True)
-        await self.hass.services.async_call(
-            "media_player",
-            "play_media",
-            {"entity_id": media_player, "media_content_type": "music", "media_content_id": content_id, "announce": True},
-            blocking=False,
-        )
+        try:
+            _LOGGER.debug("Setting volume to %.2f on %s", volume_level, media_player)
+            await self.hass.services.async_call("media_player", "volume_set", {"entity_id": media_player, "volume_level": volume_level}, blocking=True)
+
+            _LOGGER.info("Playing azan for %s - Content: %s, Volume: %s%%, Duration: %ss",
+                        prayer, content_id, vol_percent, duration)
+            await self.hass.services.async_call(
+                "media_player",
+                "play_media",
+                {"entity_id": media_player, "media_content_type": "music", "media_content_id": content_id, "announce": True},
+                blocking=False,
+            )
+            _LOGGER.debug("Azan playback initiated successfully for %s", prayer)
+
+        except Exception as e:
+            _LOGGER.error("Failed to play azan for %s: %s", prayer, e)
+            return
 
         # Pause other players periodically for duration
         pause_players = self.entry_options.get(CONF_MEDIA_PLAYERS_TO_PAUSE, [])
@@ -227,15 +294,14 @@ class MasjidScheduler:
                     await self.hass.services.async_call("media_player", "media_pause", {"entity_id": p}, blocking=False)
                     paused.append(p)
 
-        # Restore volume and resume after duration
+        # Restore volume and resume after duration using async_call_later - much simpler!
         if duration > 0:
             async def _restore() -> None:
                 await self.hass.services.async_call("media_player", "volume_set", {"entity_id": media_player, "volume_level": float(previous_volume)}, blocking=False)
                 for p in paused:
                     await self.hass.services.async_call("media_player", "media_play", {"entity_id": p}, blocking=False)
 
-            when = datetime.now() + timedelta(seconds=duration)
-            async_track_point_in_time(self.hass, lambda _: self.hass.async_create_task(_restore()), when)
+            async_call_later(self.hass, duration, lambda: self.hass.async_create_task(_restore()))
 
     async def _handle_car_start(self) -> None:
         # Check if car start is enabled using live switch state
