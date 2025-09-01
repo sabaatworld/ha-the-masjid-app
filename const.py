@@ -53,4 +53,7 @@ CAR_WATER_MINUTES_MAX: Final[int] = 30
 RAMADAN_REMINDER_MIN: Final[int] = 1
 RAMADAN_REMINDER_MAX: Final[int] = 30
 
-PRAYERS: list[str] = ["fajr", "dhuhr", "asr", "maghrib", "isha"]
+PRAYERS: list[str] = ["fajr", "dhuhr", "asr", "maghrib", "isha", "test"]
+
+# Map prayer names to JSON response keys.
+AZAN_NAME_MAP: dict[str, str] = {"fajr": "fajr", "dhuhr": "zuhr", "asr": "asr", "maghrib": "maghrib", "isha": "isha", "test": "test"}

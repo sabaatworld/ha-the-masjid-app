@@ -91,6 +91,12 @@
       },
       "test_azan": {
         "name": "Test Azan"
+      },
+      "test_azan_schedule": {
+        "name": "Test Azan Schedule"
+      },
+      "test_prayer_schedule": {
+        "name": "Test Prayer Schedule"
       }
     }
   }

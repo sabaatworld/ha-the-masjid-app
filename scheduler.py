@@ -10,6 +10,7 @@ from homeassistant.helpers.event import async_track_time_change, async_call_late
 
 from .const import (
     PRAYERS,
+    AZAN_NAME_MAP,
     CONF_MEDIA_PLAYER,
     CONF_MEDIA_DATA,
     CONF_MEDIA_CONTENT_LENGTH,
@@ -22,6 +23,7 @@ from .const import (
     CONF_TTS_ENTITY,
 )
 from .helpers import parse_prayer_time
+from .utils import get_number, get_switch_state, all_presence_sensors_present
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -47,9 +49,6 @@ class MasjidScheduler:
         self.clear_schedules()
         masjid: dict[str, Any] = data.get("masjid", {})
         azan_times: dict[str, str] = masjid.get("azan", {})
-        # Map to appdaemon naming
-        name_map: dict[str, str] = {"fajr": "fajr", "dhuhr": "zuhr", "asr": "asr", "maghrib": "maghrib", "isha": "isha"}
-
         _LOGGER.debug("Starting azan scheduling process")
         _LOGGER.debug("Received masjid data: %s", masjid)
         _LOGGER.debug("Available azan times: %s", azan_times)
@@ -59,7 +58,7 @@ class MasjidScheduler:
 
         scheduled_count = 0
         for p in PRAYERS:
-            masjid_key = name_map[p]
+            masjid_key = AZAN_NAME_MAP[p]
             azan_txt = azan_times.get(masjid_key)
             _LOGGER.debug("Processing prayer '%s' (API key: '%s'), azan text: '%s'", p, masjid_key, azan_txt)
 
@@ -93,12 +92,11 @@ class MasjidScheduler:
 
         # For prayer times, use masjid[<prayer>] keys (zuhr for dhuhr)
         for p in PRAYERS:
-            masjid_key = name_map[p]
+            masjid_key = AZAN_NAME_MAP[p]
             prayer_txt: str = masjid.get(masjid_key, "")
-            fallback_azan_txt = azan_times.get(masjid_key)
-            if not prayer_txt and not fallback_azan_txt:
+            if not prayer_txt:
                 continue
-            target_dt = parse_prayer_time(prayer_txt or fallback_azan_txt)
+            target_dt = parse_prayer_time(prayer_txt)
             target_at = now.replace(hour=target_dt.hour, minute=target_dt.minute, second=0, microsecond=0)
             if target_at <= now:
                 target_at += timedelta(days=1)
@@ -106,7 +104,7 @@ class MasjidScheduler:
             # Car start offset minutes - use live value from number entity
             prefix = self._coordinator.get_sanitized_mosque_prefix()
             car_mins_entity = f"number.{prefix}_car_start_minutes"
-            car_mins = max(0, int(self._get_number(car_mins_entity, 10.0)))
+            car_mins = max(0, int(get_number(self.hass, car_mins_entity, 10.0)))
 
             if car_mins > 0:
                 car_time = target_dt - timedelta(minutes=car_mins)
@@ -124,7 +122,7 @@ class MasjidScheduler:
 
             # Water recirculation offset minutes - use live value from number entity
             water_mins_entity = f"number.{prefix}_water_recirc_minutes"
-            water_mins = max(0, int(self._get_number(water_mins_entity, 15.0)))
+            water_mins = max(0, int(get_number(self.hass, water_mins_entity, 15.0)))
 
             if water_mins > 0:
                 water_time = target_dt - timedelta(minutes=water_mins)
@@ -143,7 +141,7 @@ class MasjidScheduler:
             # Ramadan reminder only for maghrib; offset minutes - use live value from number entity
             if p == "maghrib":
                 rem_mins_entity = f"number.{prefix}_ramadan_reminder_minutes"
-                rem_mins = max(0, int(self._get_number(rem_mins_entity, 2.0)))
+                rem_mins = max(0, int(get_number(self.hass, rem_mins_entity, 2.0)))
 
                 if rem_mins > 0:
                     rem_time = target_dt - timedelta(minutes=rem_mins)
@@ -161,58 +159,13 @@ class MasjidScheduler:
 
 
 
-    # Utilities to read states
-    def _is_on(self, entity_id: str) -> bool:
-        st = self.hass.states.get(entity_id)
-        return bool(st and st.state == "on")
 
-    def _get_switch_state(self, entity_id: str, default_val: bool = False) -> bool:
-        """Get the state of a switch entity."""
-        st = self.hass.states.get(entity_id)
-        if not st:
-            return default_val
-        return st.state == "on"
-
-    def _all_presence_sensors_present(self, presence_entities: list[str]) -> bool:
-        """Check if all selected presence sensors indicate presence."""
-        if not presence_entities:
-            return True  # If no sensors selected, assume present
-
-        for entity_id in presence_entities:
-            state = self.hass.states.get(entity_id)
-            if not state:
-                continue  # Skip missing entities
-
-            # Handle different entity types
-            if entity_id.startswith("binary_sensor."):
-                # For binary sensors, check if state is "on"
-                if state.state != "on":
-                    return False
-            elif entity_id.startswith("device_tracker."):
-                # For device trackers, check if state is "home"
-                if state.state != "home":
-                    return False
-            elif entity_id.startswith("person."):
-                # For person entities, check if state is "home"
-                if state.state != "home":
-                    return False
-
-        return True
-
-    def _get_number(self, entity_id: str, default_val: float) -> float:
-        st = self.hass.states.get(entity_id)
-        if not st:
-            return default_val
-        try:
-            return float(st.state)
-        except Exception:  # noqa: BLE001
-            return default_val
 
     def _get_azan_volume(self, prayer: str) -> int:
         """Get the azan volume for a specific prayer from live entity state."""
         prefix = self._coordinator.get_sanitized_mosque_prefix()
         entity_id = f"number.{prefix}_{prayer}_azan_volume"
-        return int(self._get_number(entity_id, 50.0))
+        return int(get_number(self.hass, entity_id, 50.0))
 
     # Handlers
     async def _handle_azan(self, prayer: str) -> None:
@@ -222,7 +175,7 @@ class MasjidScheduler:
         if prayer != "test":
             prefix = self._coordinator.get_sanitized_mosque_prefix()
             azan_switch_id = f"switch.{prefix}_azan_enabled"
-            azan_enabled = self._get_switch_state(azan_switch_id, True)
+            azan_enabled = get_switch_state(self.hass, azan_switch_id, True)
             _LOGGER.debug("Azan enabled switch (%s) state: %s", azan_switch_id, azan_enabled)
             if not azan_enabled:
                 _LOGGER.info("Azan is disabled via switch, skipping azan for %s", prayer)
@@ -307,11 +260,11 @@ class MasjidScheduler:
         # Check if car start is enabled using live switch state
         prefix = self._coordinator.get_sanitized_mosque_prefix()
         car_switch_id = f"switch.{prefix}_car_start_enabled"
-        car_enabled = self._get_switch_state(car_switch_id, False)
+        car_enabled = get_switch_state(self.hass, car_switch_id, False)
         if not car_enabled:
             return
         presence_entities = self.entry_options.get(CONF_PRESENCE_SENSORS, [])
-        if not self._all_presence_sensors_present(presence_entities):
+        if not all_presence_sensors_present(self.hass, presence_entities):
             return
         svc = self.entry_options.get(CONF_ACTION_CAR_START)
         if not svc:
@@ -325,11 +278,11 @@ class MasjidScheduler:
         # Check if water recirculation is enabled using live switch state
         prefix = self._coordinator.get_sanitized_mosque_prefix()
         water_switch_id = f"switch.{prefix}_water_recirc_enabled"
-        recirc_enabled = self._get_switch_state(water_switch_id, False)
+        recirc_enabled = get_switch_state(self.hass, water_switch_id, False)
         if not recirc_enabled:
             return
         presence_entities = self.entry_options.get(CONF_PRESENCE_SENSORS, [])
-        if not self._all_presence_sensors_present(presence_entities):
+        if not all_presence_sensors_present(self.hass, presence_entities):
             return
         svc = self.entry_options.get(CONF_ACTION_WATER_RECIRCULATION)
         if not svc:
@@ -343,7 +296,7 @@ class MasjidScheduler:
         # Check if ramadan reminder is enabled using live switch state
         prefix = self._coordinator.get_sanitized_mosque_prefix()
         ramadan_switch_id = f"switch.{prefix}_ramadan_reminder"
-        ramadan_on = self._get_switch_state(ramadan_switch_id, False)
+        ramadan_on = get_switch_state(self.hass, ramadan_switch_id, False)
         if not ramadan_on:
             return
         tts = self.entry_options.get(CONF_TTS_ENTITY)
@@ -352,7 +305,7 @@ class MasjidScheduler:
             return
         # Use live value from number entity
         mins_entity_id = f"number.{prefix}_ramadan_reminder_minutes"
-        mins = int(self._get_number(mins_entity_id, 2.0))
+        mins = int(get_number(self.hass, mins_entity_id, 2.0))
         minute_word = "minute" if mins == 1 else "minutes"
         message = f"Maghrib prayer will start in {mins} {minute_word}"
         await self.hass.services.async_call(
