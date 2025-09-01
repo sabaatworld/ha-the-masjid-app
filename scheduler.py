@@ -242,7 +242,7 @@ class MasjidScheduler:
                 for p in paused:
                     await self.hass.services.async_call("media_player", "media_play", {"entity_id": p}, blocking=False)
 
-            when = datetime.now() + timedelta(seconds=duration + 3)
+            when = datetime.now() + timedelta(seconds=duration)
             async_track_point_in_time(self.hass, lambda _: self.hass.async_create_task(_restore()), when)
 
     async def _handle_car_start(self) -> None:

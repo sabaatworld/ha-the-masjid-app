@@ -16,6 +16,9 @@ from homeassistant.helpers.selector import (
     ObjectSelectorConfig,
     MediaSelector,
     MediaSelectorConfig,
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
 )
 
 from .const import (
@@ -62,6 +65,40 @@ class OptionalMediaSelector(MediaSelector):
         # Allow empty/None values
         if data in ("", None, {}):
             return {}  # Return empty dict for no selection
+
+        # For non-empty values, use standard validation
+        return super().__call__(data)
+
+
+class ServiceSelector(SelectSelector):
+    """Custom ServiceSelector that lists available Home Assistant services."""
+
+    def __init__(self, hass):
+        """Initialize the ServiceSelector with Home Assistant instance."""
+        self._hass = hass
+
+        # Get all available services and create options
+        options = []
+
+        if hass:
+            all_services = hass.services.async_services()
+            for domain, services in sorted(all_services.items()):
+                for service_name in sorted(services.keys()):
+                    service_id = f"{domain}.{service_name}"
+                    options.append({"value": service_id, "label": service_id})
+
+        # Initialize parent with dropdown configuration
+        config = SelectSelectorConfig(
+            options=options,
+            mode=SelectSelectorMode.DROPDOWN
+        )
+        super().__init__(config)
+
+    def __call__(self, data):
+        """Validate the service selector input."""
+        # Allow empty/None values since field is optional
+        if data in ("", None):
+            return ""  # Return empty string for no selection
 
         # For non-empty values, use standard validation
         return super().__call__(data)
@@ -144,11 +181,11 @@ class MasjidAppConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional(CONF_MEDIA_PLAYERS_TO_PAUSE, default=self._get_default(CONF_MEDIA_PLAYERS_TO_PAUSE)): EntitySelector(
                     EntitySelectorConfig(domain="media_player", multiple=True)
                 ),
-                vol.Optional(CONF_ACTION_WATER_RECIRCULATION, default=self._get_default(CONF_ACTION_WATER_RECIRCULATION)): str,
+                vol.Optional(CONF_ACTION_WATER_RECIRCULATION, default=self._get_default(CONF_ACTION_WATER_RECIRCULATION)): ServiceSelector(self.hass),
                 vol.Optional(CONF_ACTION_WATER_RECIRCULATION_PARAMS, default=self._get_default(CONF_ACTION_WATER_RECIRCULATION_PARAMS)): ObjectSelector(
                     ObjectSelectorConfig()
                 ),
-                vol.Optional(CONF_ACTION_CAR_START, default=self._get_default(CONF_ACTION_CAR_START)): str,
+                vol.Optional(CONF_ACTION_CAR_START, default=self._get_default(CONF_ACTION_CAR_START)): ServiceSelector(self.hass),
                 vol.Optional(CONF_ACTION_CAR_START_PARAMS, default=self._get_default(CONF_ACTION_CAR_START_PARAMS)): ObjectSelector(
                     ObjectSelectorConfig()
                 ),
@@ -180,11 +217,11 @@ class MasjidAppConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional(CONF_MEDIA_PLAYERS_TO_PAUSE, default=self._get_default(CONF_MEDIA_PLAYERS_TO_PAUSE)): EntitySelector(
                     EntitySelectorConfig(domain="media_player", multiple=True)
                 ),
-                vol.Optional(CONF_ACTION_WATER_RECIRCULATION, default=self._get_default(CONF_ACTION_WATER_RECIRCULATION)): str,
+                vol.Optional(CONF_ACTION_WATER_RECIRCULATION, default=self._get_default(CONF_ACTION_WATER_RECIRCULATION)): ServiceSelector(self.hass),
                 vol.Optional(CONF_ACTION_WATER_RECIRCULATION_PARAMS, default=self._get_default(CONF_ACTION_WATER_RECIRCULATION_PARAMS)): ObjectSelector(
                     ObjectSelectorConfig()
                 ),
-                vol.Optional(CONF_ACTION_CAR_START, default=self._get_default(CONF_ACTION_CAR_START)): str,
+                vol.Optional(CONF_ACTION_CAR_START, default=self._get_default(CONF_ACTION_CAR_START)): ServiceSelector(self.hass),
                 vol.Optional(CONF_ACTION_CAR_START_PARAMS, default=self._get_default(CONF_ACTION_CAR_START_PARAMS)): ObjectSelector(
                     ObjectSelectorConfig()
                 ),
