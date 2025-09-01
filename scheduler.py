@@ -70,12 +70,9 @@ class MasjidScheduler:
                 azan_dt = parse_prayer_time(azan_txt)
 
                 # Use async_track_time_change for daily repetition - much simpler!
-                def azan_callback(_now):
-                    self.hass.async_create_task(self._handle_azan(p))
-
                 handle = async_track_time_change(
                     self.hass,
-                    azan_callback,
+                    lambda _now: self.hass.add_job(self._handle_azan, p),
                     hour=azan_dt.hour,
                     minute=azan_dt.minute,
                     second=0
@@ -108,12 +105,9 @@ class MasjidScheduler:
 
             if car_mins > 0:
                 car_time = target_dt - timedelta(minutes=car_mins)
-                def car_callback(_now):
-                    self.hass.async_create_task(self._handle_car_start())
-
                 handle = async_track_time_change(
                     self.hass,
-                    car_callback,
+                    lambda _now: self.hass.add_job(self._handle_car_start),
                     hour=car_time.hour,
                     minute=car_time.minute,
                     second=0
@@ -126,12 +120,9 @@ class MasjidScheduler:
 
             if water_mins > 0:
                 water_time = target_dt - timedelta(minutes=water_mins)
-                def water_callback(_now):
-                    self.hass.async_create_task(self._handle_water_recirc())
-
                 handle = async_track_time_change(
                     self.hass,
-                    water_callback,
+                    lambda _now: self.hass.add_job(self._handle_water_recirc),
                     hour=water_time.hour,
                     minute=water_time.minute,
                     second=0
@@ -145,12 +136,9 @@ class MasjidScheduler:
 
                 if rem_mins > 0:
                     rem_time = target_dt - timedelta(minutes=rem_mins)
-                    def ramadan_callback(_now):
-                        self.hass.async_create_task(self._handle_ramadan_reminder())
-
                     handle = async_track_time_change(
                         self.hass,
-                        ramadan_callback,
+                        lambda _now: self.hass.add_job(self._handle_ramadan_reminder),
                         hour=rem_time.hour,
                         minute=rem_time.minute,
                         second=0
@@ -254,7 +242,7 @@ class MasjidScheduler:
                 for p in paused:
                     await self.hass.services.async_call("media_player", "media_play", {"entity_id": p}, blocking=False)
 
-            async_call_later(self.hass, duration, lambda: self.hass.async_create_task(_restore()))
+            async_call_later(self.hass, duration, lambda: self.hass.add_job(_restore))
 
     async def _handle_car_start(self) -> None:
         # Check if car start is enabled using live switch state
@@ -318,5 +306,3 @@ class MasjidScheduler:
     def attach_listeners(self) -> None:
         """No longer needed - scheduler now reads live entity states directly."""
         pass
-
-
