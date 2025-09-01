@@ -35,6 +35,9 @@ CONF_AZAN_VOLUME_ASR: Final[str] = "azan_volume_asr"
 CONF_AZAN_VOLUME_MAGHRIB: Final[str] = "azan_volume_maghrib"
 CONF_AZAN_VOLUME_ISHA: Final[str] = "azan_volume_isha"
 
+# Test azan settings
+CONF_AZAN_VOLUME_TEST: Final[str] = "azan_volume_test"
+
 DEFAULT_REFRESH_INTERVAL_HOURS: Final[int] = 6
 
 VOLUME_STEPS: Final[int] = 5
@@ -47,7 +50,7 @@ RAMADAN_REMINDER_MINUTES_DEFAULT: Final[int] = 2
 
 CAR_WATER_MINUTES_MIN: Final[int] = 0
 CAR_WATER_MINUTES_MAX: Final[int] = 30
-RAMADAN_REMINDER_MIN: Final[int] = 0
+RAMADAN_REMINDER_MIN: Final[int] = 1
 RAMADAN_REMINDER_MAX: Final[int] = 30
 
 PRAYERS: list[str] = ["fajr", "dhuhr", "asr", "maghrib", "isha"]

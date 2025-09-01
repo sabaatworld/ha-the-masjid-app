@@ -88,6 +88,9 @@
     "button": {
       "force_refresh": {
         "name": "Force Refresh"
+      },
+      "test_azan": {
+        "name": "Test Azan"
       }
     }
   }

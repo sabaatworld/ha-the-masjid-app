@@ -7,7 +7,6 @@ from typing import Any, Callable
 
 from homeassistant.core import HomeAssistant, CALLBACK_TYPE
 from homeassistant.helpers.event import async_track_point_in_time
-from homeassistant.helpers.event import async_track_state_change_event
 
 from .const import (
     PRAYERS,
@@ -21,20 +20,8 @@ from .const import (
     CONF_ACTION_CAR_START_PARAMS,
     CONF_PRESENCE_SENSORS,
     CONF_TTS_ENTITY,
-    CONF_AZAN_ENABLED,
-    CONF_RAMADAN_REMINDER_ENABLED,
-    CONF_CAR_START_ENABLED,
-    CONF_WATER_RECIRC_ENABLED,
-    CONF_CAR_START_MINUTES,
-    CONF_WATER_RECIRC_MINUTES,
-    CONF_RAMADAN_REMINDER_MINUTES,
-    CONF_AZAN_VOLUME_FAJR,
-    CONF_AZAN_VOLUME_DHUHR,
-    CONF_AZAN_VOLUME_ASR,
-    CONF_AZAN_VOLUME_MAGHRIB,
-    CONF_AZAN_VOLUME_ISHA,
 )
-from .helpers import parse_prayer_time, safe_slug
+from .helpers import parse_prayer_time
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -85,23 +72,27 @@ class MasjidScheduler:
             if target_at <= now:
                 target_at += timedelta(days=1)
 
-            # Car start offset minutes - use saved value from config
-            car_mins = max(0, int(self.entry_options.get(CONF_CAR_START_MINUTES, 10)))
+            # Car start offset minutes - use live value from number entity
+            prefix = self._coordinator.get_sanitized_mosque_prefix()
+            car_mins_entity = f"number.{prefix}_car_start_minutes"
+            car_mins = max(0, int(self._get_number(car_mins_entity, 10.0)))
             car_at = target_at - timedelta(minutes=car_mins)
             if car_at <= now:
                 car_at += timedelta(days=1)
             self._handles.append(self._repeat_daily(car_at, self._handle_car_start))
 
-            # Water recirculation offset minutes - use saved value from config
-            water_mins = max(0, int(self.entry_options.get(CONF_WATER_RECIRC_MINUTES, 15)))
+            # Water recirculation offset minutes - use live value from number entity
+            water_mins_entity = f"number.{prefix}_water_recirc_minutes"
+            water_mins = max(0, int(self._get_number(water_mins_entity, 15.0)))
             water_at = target_at - timedelta(minutes=water_mins)
             if water_at <= now:
                 water_at += timedelta(days=1)
             self._handles.append(self._repeat_daily(water_at, self._handle_water_recirc))
 
-            # Ramadan reminder only for maghrib; offset minutes - use saved value from config
+            # Ramadan reminder only for maghrib; offset minutes - use live value from number entity
             if p == "maghrib":
-                rem_mins = max(0, int(self.entry_options.get(CONF_RAMADAN_REMINDER_MINUTES, 2)))
+                rem_mins_entity = f"number.{prefix}_ramadan_reminder_minutes"
+                rem_mins = max(0, int(self._get_number(rem_mins_entity, 2.0)))
                 rem_at = target_at - timedelta(minutes=rem_mins)
                 if rem_at <= now:
                     rem_at += timedelta(days=1)
@@ -139,6 +130,13 @@ class MasjidScheduler:
         st = self.hass.states.get(entity_id)
         return bool(st and st.state == "on")
 
+    def _get_switch_state(self, entity_id: str, default_val: bool = False) -> bool:
+        """Get the state of a switch entity."""
+        st = self.hass.states.get(entity_id)
+        if not st:
+            return default_val
+        return st.state == "on"
+
     def _all_presence_sensors_present(self, presence_entities: list[str]) -> bool:
         """Check if all selected presence sensors indicate presence."""
         if not presence_entities:
@@ -174,29 +172,22 @@ class MasjidScheduler:
         except Exception:  # noqa: BLE001
             return default_val
 
-    def _slug_prefix(self) -> str:
-        mosque: str = self._coordinator.get_effective_mosque_name()
-        return safe_slug(mosque)
-
     def _get_azan_volume(self, prayer: str) -> int:
-        """Get the azan volume for a specific prayer from config options."""
-        prayer_to_config = {
-            "fajr": CONF_AZAN_VOLUME_FAJR,
-            "dhuhr": CONF_AZAN_VOLUME_DHUHR,
-            "asr": CONF_AZAN_VOLUME_ASR,
-            "maghrib": CONF_AZAN_VOLUME_MAGHRIB,
-            "isha": CONF_AZAN_VOLUME_ISHA,
-        }
-        config_key = prayer_to_config.get(prayer, f"azan_volume_{prayer}")
-        return self.entry_options.get(config_key, 50)
+        """Get the azan volume for a specific prayer from live entity state."""
+        prefix = self._coordinator.get_sanitized_mosque_prefix()
+        entity_id = f"number.{prefix}_{prayer}_azan_volume"
+        return int(self._get_number(entity_id, 50.0))
 
     # Handlers
     async def _handle_azan(self, prayer: str) -> None:
-        # Check if azan is enabled using saved config value
-        azan_enabled = self.entry_options.get(CONF_AZAN_ENABLED, True)
-        if not azan_enabled:
-            return
-        # Volume per prayer - use saved value from config
+        # Check if azan is enabled using live switch state (skip check for test calls)
+        if prayer != "test":
+            prefix = self._coordinator.get_sanitized_mosque_prefix()
+            azan_switch_id = f"switch.{prefix}_azan_enabled"
+            azan_enabled = self._get_switch_state(azan_switch_id, True)
+            if not azan_enabled:
+                return
+        # Volume per prayer - use live value from number entity
         vol_percent = self._get_azan_volume(prayer)
         if vol_percent <= 0:
             return
@@ -208,13 +199,14 @@ class MasjidScheduler:
             return
 
         # Save current volume
-        current_state = self.hass.states.get(media_player)
-        current_volume = (current_state and current_state.attributes.get("volume_level")) or 0.5
+        media_player_current_state = self.hass.states.get(media_player)
+        previous_volume = (media_player_current_state and media_player_current_state.attributes.get("volume_level")) or 0.5
         volume_level = max(0.0, min(1.0, vol_percent / 100.0))
 
         # Stop if playing
-        if current_state and current_state.state == "playing":
+        if media_player_current_state and media_player_current_state.state == "playing":
             await self.hass.services.async_call("media_player", "media_stop", {"entity_id": media_player}, blocking=True)
+            await asyncio.sleep(1)
 
         # Set volume, then play
         await self.hass.services.async_call("media_player", "volume_set", {"entity_id": media_player, "volume_level": volume_level}, blocking=True)
@@ -238,7 +230,7 @@ class MasjidScheduler:
         # Restore volume and resume after duration
         if duration > 0:
             async def _restore() -> None:
-                await self.hass.services.async_call("media_player", "volume_set", {"entity_id": media_player, "volume_level": float(current_volume)}, blocking=False)
+                await self.hass.services.async_call("media_player", "volume_set", {"entity_id": media_player, "volume_level": float(previous_volume)}, blocking=False)
                 for p in paused:
                     await self.hass.services.async_call("media_player", "media_play", {"entity_id": p}, blocking=False)
 
@@ -246,8 +238,10 @@ class MasjidScheduler:
             async_track_point_in_time(self.hass, lambda _: self.hass.async_create_task(_restore()), when)
 
     async def _handle_car_start(self) -> None:
-        # Check if car start is enabled using saved config value
-        car_enabled = self.entry_options.get(CONF_CAR_START_ENABLED, False)
+        # Check if car start is enabled using live switch state
+        prefix = self._coordinator.get_sanitized_mosque_prefix()
+        car_switch_id = f"switch.{prefix}_car_start_enabled"
+        car_enabled = self._get_switch_state(car_switch_id, False)
         if not car_enabled:
             return
         presence_entities = self.entry_options.get(CONF_PRESENCE_SENSORS, [])
@@ -262,8 +256,10 @@ class MasjidScheduler:
         await self.hass.services.async_call(domain, service, data, blocking=False)
 
     async def _handle_water_recirc(self) -> None:
-        # Check if water recirculation is enabled using saved config value
-        recirc_enabled = self.entry_options.get(CONF_WATER_RECIRC_ENABLED, False)
+        # Check if water recirculation is enabled using live switch state
+        prefix = self._coordinator.get_sanitized_mosque_prefix()
+        water_switch_id = f"switch.{prefix}_water_recirc_enabled"
+        recirc_enabled = self._get_switch_state(water_switch_id, False)
         if not recirc_enabled:
             return
         presence_entities = self.entry_options.get(CONF_PRESENCE_SENSORS, [])
@@ -278,17 +274,21 @@ class MasjidScheduler:
         await self.hass.services.async_call(domain, service, data, blocking=False)
 
     async def _handle_ramadan_reminder(self) -> None:
-        # Check if ramadan reminder is enabled using saved config value
-        ramadan_on = self.entry_options.get(CONF_RAMADAN_REMINDER_ENABLED, False)
+        # Check if ramadan reminder is enabled using live switch state
+        prefix = self._coordinator.get_sanitized_mosque_prefix()
+        ramadan_switch_id = f"switch.{prefix}_ramadan_reminder"
+        ramadan_on = self._get_switch_state(ramadan_switch_id, False)
         if not ramadan_on:
             return
         tts = self.entry_options.get(CONF_TTS_ENTITY)
         media_player = self.entry_options.get(CONF_MEDIA_PLAYER)
         if not tts or not media_player or tts == "" or media_player == "":
             return
-        # Use saved value from config
-        mins = int(self.entry_options.get(CONF_RAMADAN_REMINDER_MINUTES, 2))
-        message = f"Maghrib prayer will start in {mins} minutes"
+        # Use live value from number entity
+        mins_entity_id = f"number.{prefix}_ramadan_reminder_minutes"
+        mins = int(self._get_number(mins_entity_id, 2.0))
+        minute_word = "minute" if mins == 1 else "minutes"
+        message = f"Maghrib prayer will start in {mins} {minute_word}"
         await self.hass.services.async_call(
             "tts",
             "speak",
@@ -297,32 +297,7 @@ class MasjidScheduler:
         )
 
     def attach_listeners(self) -> None:
-        """Listen for changes on minute offset numbers and reschedule."""
-        slug = self._slug_prefix()
-        targets = [
-            f"number.{slug}_car_start_minutes",
-            f"number.{slug}_water_recirc_minutes",
-            f"number.{slug}_ramadan_reminder_minutes",
-        ]
-
-        async def _reschedule(event) -> None:  # noqa: ANN001
-            # Reschedule with current coordinator data if available
-            # We rely on __init__ storing data in hass.data under DOMAIN, but to avoid coupling, we just clear and wait for next coordinator refresh
-            # Alternatively, we can rebuild from last schedule if needed; simplest approach is to clear and let next refresh repopulate.
-            # Here we fetch latest available from entities masjid id; not accessible directly, so we no-op if we lack data.
-            # Integrations will reschedule on coordinator updates automatically; for immediate user feedback, we can attempt to rebuild from last known times stored on self.
-            if hasattr(self, "_last_data") and self._last_data:
-                self.schedule_from_data(self._last_data)
-
-        # Store last_data when scheduling
-        orig_schedule = self.schedule_from_data
-
-        def _wrap_schedule(data: dict[str, Any]) -> None:
-            self._last_data = data
-            orig_schedule(data)
-
-        self.schedule_from_data = _wrap_schedule  # type: ignore[assignment]
-
-        self._handles.append(async_track_state_change_event(self.hass, targets, _reschedule))
+        """No longer needed - scheduler now reads live entity states directly."""
+        pass
 
 
