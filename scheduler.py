@@ -145,10 +145,6 @@ class MasjidScheduler:
                     )
                     self._handles.append(handle)
 
-
-
-
-
     def _get_azan_volume(self, prayer: str) -> int:
         """Get the azan volume for a specific prayer from live entity state."""
         prefix = self._coordinator.get_sanitized_mosque_prefix()
@@ -211,7 +207,7 @@ class MasjidScheduler:
                 _LOGGER.debug("Resumed %d paused players", len(paused_players))
 
         if delay_seconds > 0:
-            async_call_later(self.hass, delay_seconds, lambda: self.hass.add_job(_restore))
+            async_call_later(self.hass, delay_seconds, lambda _time: self.hass.add_job(_restore))
         else:
             await _restore()
 
@@ -272,16 +268,7 @@ class MasjidScheduler:
 
         # Restore volume and resume after duration
         if duration > 0:
-<<<<<<< HEAD
-            async def _restore() -> None:
-                await self.hass.services.async_call("media_player", "volume_set", {"entity_id": media_player, "volume_level": float(previous_volume)}, blocking=False)
-                for p in paused:
-                    await self.hass.services.async_call("media_player", "media_play", {"entity_id": p}, blocking=False)
-
-            async_call_later(self.hass, duration, lambda: self.hass.add_job(_restore))
-=======
             await self._restore_volume_and_resume(media_player, previous_volume, paused, duration)
->>>>>>> 2d516e3 (Fix more things)
 
     async def _handle_car_start(self) -> None:
         # Check if car start is enabled using live switch state
