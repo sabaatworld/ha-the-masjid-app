@@ -154,7 +154,7 @@ class TestPrayerScheduleButton(ButtonEntity):
     _attr_has_entity_name = True
     _attr_should_poll = False
     _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_icon = "mdi:calendar-multiple"
+    _attr_icon = "mdi:calendar-clock"
 
     def __init__(self, coordinator: MasjidDataCoordinator, entry: ConfigEntry) -> None:
         """Initialize the test prayer schedule button."""

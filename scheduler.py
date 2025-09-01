@@ -38,10 +38,7 @@ class MasjidScheduler:
     def clear_schedules(self) -> None:
         _LOGGER.debug("Clearing %d existing schedules", len(self._handles))
         for h in self._handles:
-            try:
-                h()
-            except Exception:  # noqa: BLE001
-                pass
+            h()  # Home Assistant handles cleanup gracefully
         self._handles.clear()
         _LOGGER.debug("All schedules cleared")
 
@@ -66,23 +63,22 @@ class MasjidScheduler:
                 _LOGGER.debug("No azan time found for prayer '%s', skipping", p)
                 continue
 
-            try:
-                azan_dt = parse_prayer_time(azan_txt)
+            azan_dt = parse_prayer_time(azan_txt)
+            if azan_dt is None:
+                _LOGGER.warning("Skipping azan scheduling for %s due to invalid time format: %s", p, azan_txt)
+                continue
 
-                # Use async_track_time_change for daily repetition - much simpler!
-                handle = async_track_time_change(
-                    self.hass,
-                    lambda _now: self.hass.add_job(self._handle_azan, p),
-                    hour=azan_dt.hour,
-                    minute=azan_dt.minute,
-                    second=0
-                )
-                self._handles.append(handle)
-                scheduled_count += 1
-                _LOGGER.info("Successfully scheduled azan for %s at %s", p, azan_dt.strftime("%I:%M %p"))
-
-            except Exception as e:
-                _LOGGER.error("Failed to schedule azan for prayer '%s' with time '%s': %s", p, azan_txt, e)
+            # Use async_track_time_change for daily repetition - much simpler!
+            handle = async_track_time_change(
+                self.hass,
+                lambda _now: self.hass.add_job(self._handle_azan, p),
+                hour=azan_dt.hour,
+                minute=azan_dt.minute,
+                second=0
+            )
+            self._handles.append(handle)
+            scheduled_count += 1
+            _LOGGER.info("Successfully scheduled azan for %s at %s", p, azan_dt.strftime("%I:%M %p"))
 
         _LOGGER.info("Azan scheduling completed. Successfully scheduled %d out of %d prayers",
                     scheduled_count, len(PRAYERS))
@@ -93,10 +89,14 @@ class MasjidScheduler:
             prayer_txt: str = masjid.get(masjid_key, "")
             if not prayer_txt:
                 continue
-            target_dt = parse_prayer_time(prayer_txt)
-            target_at = now.replace(hour=target_dt.hour, minute=target_dt.minute, second=0, microsecond=0)
-            if target_at <= now:
-                target_at += timedelta(days=1)
+            prayer_dt = parse_prayer_time(prayer_txt)
+            if prayer_dt is None:
+                _LOGGER.warning("Skipping prayer time scheduling for %s due to invalid time format: %s", p, prayer_txt)
+                continue
+
+            prayer_at = now.replace(hour=prayer_dt.hour, minute=prayer_dt.minute, second=0, microsecond=0)
+            if prayer_at <= now:
+                prayer_at += timedelta(days=1)
 
             # Car start offset minutes - use live value from number entity
             prefix = self._coordinator.get_sanitized_mosque_prefix()
@@ -104,7 +104,7 @@ class MasjidScheduler:
             car_mins = max(0, int(get_number(self.hass, car_mins_entity, 10.0)))
 
             if car_mins > 0:
-                car_time = target_dt - timedelta(minutes=car_mins)
+                car_time = prayer_dt - timedelta(minutes=car_mins)
                 handle = async_track_time_change(
                     self.hass,
                     lambda _now: self.hass.add_job(self._handle_car_start),
@@ -119,7 +119,7 @@ class MasjidScheduler:
             water_mins = max(0, int(get_number(self.hass, water_mins_entity, 15.0)))
 
             if water_mins > 0:
-                water_time = target_dt - timedelta(minutes=water_mins)
+                water_time = prayer_dt - timedelta(minutes=water_mins)
                 handle = async_track_time_change(
                     self.hass,
                     lambda _now: self.hass.add_job(self._handle_water_recirc),
@@ -135,7 +135,7 @@ class MasjidScheduler:
                 rem_mins = max(0, int(get_number(self.hass, rem_mins_entity, 2.0)))
 
                 if rem_mins > 0:
-                    rem_time = target_dt - timedelta(minutes=rem_mins)
+                    rem_time = prayer_dt - timedelta(minutes=rem_mins)
                     handle = async_track_time_change(
                         self.hass,
                         lambda _now: self.hass.add_job(self._handle_ramadan_reminder),
@@ -155,6 +155,66 @@ class MasjidScheduler:
         entity_id = f"number.{prefix}_{prayer}_azan_volume"
         return int(get_number(self.hass, entity_id, 50.0))
 
+    async def _prepare_media_playback(self, media_player: str, volume_percent: int, context: str) -> float:
+        """
+        Prepare media player for playback with volume management.
+
+        Args:
+            media_player: Entity ID of the media player
+            volume_percent: Target volume percentage (0-100)
+            context: Context for logging (e.g., 'azan', 'reminder')
+
+        Returns:
+            Previous volume level
+        """
+
+        # Save current volume
+        media_player_current_state = self.hass.states.get(media_player)
+        _LOGGER.debug("Media player (%s) current state: %s", media_player,
+                     media_player_current_state.state if media_player_current_state else "Not found")
+
+        previous_volume = (media_player_current_state and media_player_current_state.attributes.get("volume_level")) or 0.5
+        volume_level = max(0.0, min(1.0, volume_percent / 100.0))
+
+        _LOGGER.debug("%s volume settings - Previous: %.2f, Target: %.2f (from %s%%)",
+                     context.title(), previous_volume, volume_level, volume_percent)
+
+        # Stop if playing
+        if media_player_current_state and media_player_current_state.state == "playing":
+            _LOGGER.debug("Media player is currently playing, stopping it first")
+            await self.hass.services.async_call("media_player", "media_stop", {"entity_id": media_player}, blocking=True)
+            await asyncio.sleep(1)
+
+        # Set volume
+        _LOGGER.debug("Setting volume to %.2f on %s for %s", volume_level, media_player, context)
+        await self.hass.services.async_call("media_player", "volume_set", {"entity_id": media_player, "volume_level": volume_level}, blocking=True)
+        return previous_volume
+
+    async def _restore_volume_and_resume(self, media_player: str, previous_volume: float,
+                                       paused_players: list[str] = None, delay_seconds: int = 0) -> None:
+        """
+        Restore volume and resume paused players after a delay.
+
+        Args:
+            media_player: Entity ID of the media player
+            previous_volume: Volume level to restore
+            paused_players: List of paused player entity IDs to resume
+            delay_seconds: Delay before restoration (0 for immediate)
+        """
+        async def _restore() -> None:
+            await self.hass.services.async_call("media_player", "volume_set", {"entity_id": media_player, "volume_level": float(previous_volume)}, blocking=False)
+            _LOGGER.debug("Restored volume to %.2f on %s", previous_volume, media_player)
+
+            if paused_players:
+                for p in paused_players:
+                    await self.hass.services.async_call("media_player", "media_play", {"entity_id": p}, blocking=False)
+                _LOGGER.debug("Resumed %d paused players", len(paused_players))
+
+        if delay_seconds > 0:
+            async_call_later(self.hass, delay_seconds, lambda: self.hass.add_job(_restore))
+        else:
+            await _restore()
+
     # Handlers
     async def _handle_azan(self, prayer: str) -> None:
         _LOGGER.info("Azan handler triggered for prayer: %s", prayer)
@@ -172,9 +232,6 @@ class MasjidScheduler:
         # Volume per prayer - use live value from number entity
         vol_percent = self._get_azan_volume(prayer)
         _LOGGER.debug("Azan volume for %s: %s%%", prayer, vol_percent)
-        if vol_percent <= 0:
-            _LOGGER.info("Azan volume is 0 for %s, skipping azan", prayer)
-            return
 
         media_player = self.entry_options.get(CONF_MEDIA_PLAYER)
         media_data = self.entry_options.get(CONF_MEDIA_DATA, {})
@@ -189,41 +246,19 @@ class MasjidScheduler:
                          media_player, content_id)
             return
 
-        # Save current volume
-        media_player_current_state = self.hass.states.get(media_player)
-        _LOGGER.debug("Media player (%s) current state: %s", media_player,
-                     media_player_current_state.state if media_player_current_state else "Not found")
+        # Prepare media player for playback
+        previous_volume = await self._prepare_media_playback(media_player, vol_percent, "azan")
 
-        previous_volume = (media_player_current_state and media_player_current_state.attributes.get("volume_level")) or 0.5
-        volume_level = max(0.0, min(1.0, vol_percent / 100.0))
-
-        _LOGGER.debug("Volume settings - Previous: %.2f, Target: %.2f (from %s%%)",
-                     previous_volume, volume_level, vol_percent)
-
-        # Stop if playing
-        if media_player_current_state and media_player_current_state.state == "playing":
-            _LOGGER.debug("Media player is currently playing, stopping it first")
-            await self.hass.services.async_call("media_player", "media_stop", {"entity_id": media_player}, blocking=True)
-            await asyncio.sleep(1)
-
-        # Set volume, then play
-        try:
-            _LOGGER.debug("Setting volume to %.2f on %s", volume_level, media_player)
-            await self.hass.services.async_call("media_player", "volume_set", {"entity_id": media_player, "volume_level": volume_level}, blocking=True)
-
-            _LOGGER.info("Playing azan for %s - Content: %s, Volume: %s%%, Duration: %ss",
-                        prayer, content_id, vol_percent, duration)
-            await self.hass.services.async_call(
-                "media_player",
-                "play_media",
-                {"entity_id": media_player, "media_content_type": "music", "media_content_id": content_id, "announce": True},
-                blocking=False,
-            )
-            _LOGGER.debug("Azan playback initiated successfully for %s", prayer)
-
-        except Exception as e:
-            _LOGGER.error("Failed to play azan for %s: %s", prayer, e)
-            return
+        # Play azan
+        _LOGGER.info("Playing azan for %s - Content: %s, Volume: %s%%, Duration: %ss",
+                    prayer, content_id, vol_percent, duration)
+        await self.hass.services.async_call(
+            "media_player",
+            "play_media",
+            {"entity_id": media_player, "media_content_type": "music", "media_content_id": content_id, "announce": True},
+            blocking=False,
+        )
+        _LOGGER.debug("Azan playback initiated successfully for %s", prayer)
 
         # Pause other players periodically for duration
         pause_players = self.entry_options.get(CONF_MEDIA_PLAYERS_TO_PAUSE, [])
@@ -235,14 +270,18 @@ class MasjidScheduler:
                     await self.hass.services.async_call("media_player", "media_pause", {"entity_id": p}, blocking=False)
                     paused.append(p)
 
-        # Restore volume and resume after duration using async_call_later - much simpler!
+        # Restore volume and resume after duration
         if duration > 0:
+<<<<<<< HEAD
             async def _restore() -> None:
                 await self.hass.services.async_call("media_player", "volume_set", {"entity_id": media_player, "volume_level": float(previous_volume)}, blocking=False)
                 for p in paused:
                     await self.hass.services.async_call("media_player", "media_play", {"entity_id": p}, blocking=False)
 
             async_call_later(self.hass, duration, lambda: self.hass.add_job(_restore))
+=======
+            await self._restore_volume_and_resume(media_player, previous_volume, paused, duration)
+>>>>>>> 2d516e3 (Fix more things)
 
     async def _handle_car_start(self) -> None:
         # Check if car start is enabled using live switch state
@@ -291,17 +330,31 @@ class MasjidScheduler:
         media_player = self.entry_options.get(CONF_MEDIA_PLAYER)
         if not tts or not media_player or tts == "" or media_player == "":
             return
+
+        # Get maghrib azan volume for reminder
+        vol_percent = self._get_azan_volume("maghrib")
+        _LOGGER.debug("Reminder volume (using maghrib azan volume): %s%%", vol_percent)
+
         # Use live value from number entity
         mins_entity_id = f"number.{prefix}_ramadan_reminder_minutes"
         mins = int(get_number(self.hass, mins_entity_id, 2.0))
         minute_word = "minute" if mins == 1 else "minutes"
         message = f"Maghrib prayer will start in {mins} {minute_word}"
+
+        # Prepare media player for playback
+        previous_volume = await self._prepare_media_playback(media_player, vol_percent, "reminder")
+
+        # Play reminder message
+        _LOGGER.info("Playing reminder - Message: %s, Volume: %s%%", message, vol_percent)
         await self.hass.services.async_call(
             "tts",
             "speak",
             {"entity_id": tts, "cache": True, "message": message, "media_player_entity_id": media_player},
             blocking=False,
         )
+
+        # Restore volume after a short delay (TTS typically takes a few seconds)
+        await self._restore_volume_and_resume(media_player, previous_volume, delay_seconds=5)
 
     def attach_listeners(self) -> None:
         """No longer needed - scheduler now reads live entity states directly."""

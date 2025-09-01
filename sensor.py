@@ -167,6 +167,10 @@ class PrayerTimeSensor(SensorEntity):
         }
         self._attr_device_info = coordinator.get_device_info()
 
+        # Set diagnostic category for test prayer sensors
+        if prayer == "test":
+            self._attr_entity_category = EntityCategory.DIAGNOSTIC
+
     @property
     def native_value(self) -> str | None:
         """Return the time value as a string."""
