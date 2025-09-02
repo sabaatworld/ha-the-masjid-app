@@ -22,6 +22,7 @@ from .const import (
     CONF_CAR_START_MINUTES,
     CONF_WATER_RECIRC_MINUTES,
     CONF_RAMADAN_REMINDER_MINUTES,
+    CONF_AZAN_VOLUME_BASE,
     CONF_AZAN_VOLUME_FAJR,
     CONF_AZAN_VOLUME_DHUHR,
     CONF_AZAN_VOLUME_ASR,
@@ -40,14 +41,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
     entities: list[NumberEntity] = []
     for p in PRAYERS:
-        entities.append(AzanVolumeNumber(f"{p.title()} Azan Volume", f"{prefix}_{p}_azan_volume", entry, p, coordinator))
+        entities.append(AzanVolumeNumber(f"{p.title()} Azan Volume", f"{prefix}_{p}_{CONF_AZAN_VOLUME_BASE}", entry, p, coordinator))
 
-    entities.append(CarStartMinutesNumber("Car Start", f"{prefix}_car_start_minutes", entry, coordinator))
-    entities.append(WaterRecircMinutesNumber("Water Recirculation", f"{prefix}_water_recirc_minutes", entry, coordinator))
-    entities.append(RamadanReminderMinutesNumber("Ramadan Reminder", f"{prefix}_ramadan_reminder_minutes", entry, coordinator))
+    entities.append(CarStartMinutesNumber("Car Start", f"{prefix}_{CONF_CAR_START_MINUTES}", entry, coordinator))
+    entities.append(WaterRecircMinutesNumber("Water Recirculation", f"{prefix}_{CONF_WATER_RECIRC_MINUTES}", entry, coordinator))
+    entities.append(RamadanReminderMinutesNumber("Ramadan Reminder", f"{prefix}_{CONF_RAMADAN_REMINDER_MINUTES}", entry, coordinator))
 
     # Add diagnostic test azan volume entity
-    test_volume_entity = AzanVolumeNumber("Test Azan Volume", f"{prefix}_test_azan_volume", entry, "test", coordinator)
+    test_volume_entity = AzanVolumeNumber("Test Azan Volume", f"{prefix}_test_{CONF_AZAN_VOLUME_BASE}", entry, "test", coordinator)
     test_volume_entity._attr_entity_category = EntityCategory.DIAGNOSTIC
     entities.append(test_volume_entity)
 
@@ -160,8 +161,3 @@ class RamadanReminderMinutesNumber(BaseMasjidNumber):
 
     def _get_config_key(self) -> str:
         return CONF_RAMADAN_REMINDER_MINUTES
-
-
-
-
-

@@ -63,19 +63,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     prefix = coordinator.get_sanitized_mosque_prefix()
 
     entities: list[SwitchEntity] = []
-    azan_switch = AzanSwitch("Azan", f"{prefix}_azan_enabled", entry, coordinator, default=True)
+    azan_switch = AzanSwitch("Azan", f"{prefix}_{CONF_AZAN_ENABLED}", entry, coordinator, default=True)
     azan_switch._attr_icon = "mdi:volume-high"
     entities.append(azan_switch)
 
-    ramadan_switch = RamadanReminderSwitch("Ramadan Reminder", f"{prefix}_ramadan_reminder", entry, coordinator, default=False)
+    ramadan_switch = RamadanReminderSwitch("Ramadan Reminder", f"{prefix}_{CONF_RAMADAN_REMINDER_ENABLED}", entry, coordinator, default=False)
     ramadan_switch._attr_icon = "mdi:bell-plus"
     entities.append(ramadan_switch)
 
-    car_switch = CarStartSwitch("Car Start", f"{prefix}_car_start_enabled", entry, coordinator, default=False)
+    car_switch = CarStartSwitch("Car Start", f"{prefix}_{CONF_CAR_START_ENABLED}", entry, coordinator, default=False)
     car_switch._attr_icon = "mdi:car"
     entities.append(car_switch)
 
-    water_switch = WaterRecircSwitch("Water Recirculation", f"{prefix}_water_recirc_enabled", entry, coordinator, default=False)
+    water_switch = WaterRecircSwitch("Water Recirculation", f"{prefix}_{CONF_WATER_RECIRC_ENABLED}", entry, coordinator, default=False)
     water_switch._attr_icon = "mdi:water-pump"
     entities.append(water_switch)
 
@@ -100,5 +100,3 @@ class CarStartSwitch(BaseMasjidSwitch):
 class WaterRecircSwitch(BaseMasjidSwitch):
     def _get_config_key(self) -> str:
         return CONF_WATER_RECIRC_ENABLED
-
-

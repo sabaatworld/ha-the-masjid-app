@@ -28,15 +28,18 @@ CONF_CAR_START_MINUTES: Final[str] = "car_start_minutes"
 CONF_WATER_RECIRC_MINUTES: Final[str] = "water_recirc_minutes"
 CONF_RAMADAN_REMINDER_MINUTES: Final[str] = "ramadan_reminder_minutes"
 
+# Azan volume base constant
+CONF_AZAN_VOLUME_BASE: Final[str] = "azan_volume"
+
 # Azan volume settings for each prayer
-CONF_AZAN_VOLUME_FAJR: Final[str] = "azan_volume_fajr"
-CONF_AZAN_VOLUME_DHUHR: Final[str] = "azan_volume_dhuhr"
-CONF_AZAN_VOLUME_ASR: Final[str] = "azan_volume_asr"
-CONF_AZAN_VOLUME_MAGHRIB: Final[str] = "azan_volume_maghrib"
-CONF_AZAN_VOLUME_ISHA: Final[str] = "azan_volume_isha"
+CONF_AZAN_VOLUME_FAJR: Final[str] = f"{CONF_AZAN_VOLUME_BASE}_fajr"
+CONF_AZAN_VOLUME_DHUHR: Final[str] = f"{CONF_AZAN_VOLUME_BASE}_dhuhr"
+CONF_AZAN_VOLUME_ASR: Final[str] = f"{CONF_AZAN_VOLUME_BASE}_asr"
+CONF_AZAN_VOLUME_MAGHRIB: Final[str] = f"{CONF_AZAN_VOLUME_BASE}_maghrib"
+CONF_AZAN_VOLUME_ISHA: Final[str] = f"{CONF_AZAN_VOLUME_BASE}_isha"
 
 # Test azan settings
-CONF_AZAN_VOLUME_TEST: Final[str] = "azan_volume_test"
+CONF_AZAN_VOLUME_TEST: Final[str] = f"{CONF_AZAN_VOLUME_BASE}_test"
 
 DEFAULT_REFRESH_INTERVAL_HOURS: Final[int] = 6
 
