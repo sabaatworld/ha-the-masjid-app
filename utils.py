@@ -25,9 +25,6 @@ def get_switch_state(hass: HomeAssistant, entity_id: str, default_val: bool = Fa
     return st.state == "on"
 
 
-
-
-
 def all_presence_sensors_present(hass: HomeAssistant, presence_entities: list[str]) -> bool:
     """Check if all selected presence sensors indicate presence."""
     if not presence_entities:

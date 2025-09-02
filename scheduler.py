@@ -271,51 +271,106 @@ class MasjidScheduler:
             await self._restore_volume_and_resume(media_player, previous_volume, paused, duration)
 
     async def _handle_car_start(self) -> None:
+        _LOGGER.debug("Car start handler triggered")
+
         # Check if car start is enabled using live switch state
         prefix = self._coordinator.get_sanitized_mosque_prefix()
         car_switch_id = f"switch.{prefix}_car_start_enabled"
         car_enabled = get_switch_state(self.hass, car_switch_id, False)
+        _LOGGER.debug("Car start enabled switch (%s) state: %s", car_switch_id, car_enabled)
+
         if not car_enabled:
+            _LOGGER.debug("Car start is disabled via switch, skipping")
             return
+
         presence_entities = self.entry_options.get(CONF_PRESENCE_SENSORS, [])
-        if not all_presence_sensors_present(self.hass, presence_entities):
+        _LOGGER.debug("Checking presence sensors: %s", presence_entities)
+
+        presence_detected = all_presence_sensors_present(self.hass, presence_entities)
+        _LOGGER.debug("Presence sensors status: %s", presence_detected)
+
+        if not presence_detected:
+            _LOGGER.debug("Not all presence sensors are present, skipping car start")
             return
+
         svc = self.entry_options.get(CONF_ACTION_CAR_START)
+        _LOGGER.debug("Car start service configuration: %s", svc)
+
         if not svc:
+            _LOGGER.debug("No car start service configured, skipping")
             return
+
         domain, _, service = svc.partition(".")
+        _LOGGER.debug("Car start service - Domain: %s, Service: %s", domain, service)
+
         # ObjectSelector returns a dict, fallback to empty dict if not set
         data = self.entry_options.get(CONF_ACTION_CAR_START_PARAMS) or {}
+        _LOGGER.debug("Car start service parameters: %s", data)
+
+        _LOGGER.info("Executing car start service: %s.%s with data: %s", domain, service, data)
         await self.hass.services.async_call(domain, service, data, blocking=False)
+        _LOGGER.debug("Car start service call completed successfully")
 
     async def _handle_water_recirc(self) -> None:
+        _LOGGER.debug("Water recirculation handler triggered")
+
         # Check if water recirculation is enabled using live switch state
         prefix = self._coordinator.get_sanitized_mosque_prefix()
         water_switch_id = f"switch.{prefix}_water_recirc_enabled"
         recirc_enabled = get_switch_state(self.hass, water_switch_id, False)
+        _LOGGER.debug("Water recirculation enabled switch (%s) state: %s", water_switch_id, recirc_enabled)
+
         if not recirc_enabled:
+            _LOGGER.debug("Water recirculation is disabled via switch, skipping")
             return
+
         presence_entities = self.entry_options.get(CONF_PRESENCE_SENSORS, [])
-        if not all_presence_sensors_present(self.hass, presence_entities):
+        _LOGGER.debug("Checking presence sensors: %s", presence_entities)
+
+        presence_detected = all_presence_sensors_present(self.hass, presence_entities)
+        _LOGGER.debug("Presence sensors status: %s", presence_detected)
+
+        if not presence_detected:
+            _LOGGER.debug("Not all presence sensors are present, skipping water recirculation")
             return
+
         svc = self.entry_options.get(CONF_ACTION_WATER_RECIRCULATION)
+        _LOGGER.debug("Water recirculation service configuration: %s", svc)
+
         if not svc:
+            _LOGGER.debug("No water recirculation service configured, skipping")
             return
+
         domain, _, service = svc.partition(".")
+        _LOGGER.debug("Water recirculation service - Domain: %s, Service: %s", domain, service)
+
         # ObjectSelector returns a dict, fallback to empty dict if not set
         data = self.entry_options.get(CONF_ACTION_WATER_RECIRCULATION_PARAMS) or {}
+        _LOGGER.debug("Water recirculation service parameters: %s", data)
+
+        _LOGGER.info("Executing water recirculation service: %s.%s with data: %s", domain, service, data)
         await self.hass.services.async_call(domain, service, data, blocking=False)
+        _LOGGER.debug("Water recirculation service call completed successfully")
 
     async def _handle_ramadan_reminder(self) -> None:
+        _LOGGER.debug("Ramadan reminder handler triggered")
+
         # Check if ramadan reminder is enabled using live switch state
         prefix = self._coordinator.get_sanitized_mosque_prefix()
         ramadan_switch_id = f"switch.{prefix}_ramadan_reminder"
         ramadan_on = get_switch_state(self.hass, ramadan_switch_id, False)
+        _LOGGER.debug("Ramadan reminder switch (%s) state: %s", ramadan_switch_id, ramadan_on)
+
         if not ramadan_on:
+            _LOGGER.debug("Ramadan reminder is disabled via switch, skipping")
             return
+
         tts = self.entry_options.get(CONF_TTS_ENTITY)
         media_player = self.entry_options.get(CONF_MEDIA_PLAYER)
+        _LOGGER.debug("TTS entity: %s, Media player: %s", tts, media_player)
+
         if not tts or not media_player or tts == "" or media_player == "":
+            _LOGGER.debug("Invalid TTS or media player configuration, skipping ramadan reminder")
             return
 
         # Get maghrib azan volume for reminder
@@ -325,22 +380,28 @@ class MasjidScheduler:
         # Use live value from number entity
         mins_entity_id = f"number.{prefix}_ramadan_reminder_minutes"
         mins = int(get_number(self.hass, mins_entity_id, 2.0))
+        _LOGGER.debug("Ramadan reminder minutes from entity (%s): %s", mins_entity_id, mins)
+
         minute_word = "minute" if mins == 1 else "minutes"
         message = f"Maghrib prayer will start in {mins} {minute_word}"
+        _LOGGER.debug("Generated reminder message: %s", message)
 
         # Prepare media player for playback
+        _LOGGER.debug("Preparing media player for ramadan reminder playback")
         previous_volume = await self._prepare_media_playback(media_player, vol_percent, "reminder")
 
         # Play reminder message
-        _LOGGER.info("Playing reminder - Message: %s, Volume: %s%%", message, vol_percent)
+        _LOGGER.info("Playing ramadan reminder - Message: %s, Volume: %s%%", message, vol_percent)
         await self.hass.services.async_call(
             "tts",
             "speak",
             {"entity_id": tts, "cache": True, "message": message, "media_player_entity_id": media_player},
             blocking=False,
         )
+        _LOGGER.debug("Ramadan reminder TTS service call completed successfully")
 
         # Restore volume after a short delay (TTS typically takes a few seconds)
+        _LOGGER.debug("Scheduling volume restoration after 5 seconds")
         await self._restore_volume_and_resume(media_player, previous_volume, delay_seconds=5)
 
     def attach_listeners(self) -> None:

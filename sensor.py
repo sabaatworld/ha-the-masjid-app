@@ -45,23 +45,25 @@ async def async_setup_entry(
 
     # Add prayer time sensor entities
     for prayer in PRAYERS:
-        sensor_entities.append(
-            PrayerTimeSensor(
-                coordinator=coordinator,
-                prayer=prayer,
-                entity_type="azan"
+        if prayer != "test":
+            sensor_entities.append(
+                PrayerTimeSensor(
+                    coordinator=coordinator,
+                    prayer=prayer,
+                    entity_type="azan"
+                )
             )
-        )
 
     # Add iqama time sensor entities
     for prayer in PRAYERS:
-        sensor_entities.append(
-            PrayerTimeSensor(
-                coordinator=coordinator,
-                prayer=prayer,
-                entity_type="iqama"
+        if prayer != "test":
+            sensor_entities.append(
+                PrayerTimeSensor(
+                    coordinator=coordinator,
+                    prayer=prayer,
+                    entity_type="iqama"
+                )
             )
-        )
 
     async_add_entities(sensor_entities)
 
@@ -166,10 +168,6 @@ class PrayerTimeSensor(SensorEntity):
             "type": entity_type.title()
         }
         self._attr_device_info = coordinator.get_device_info()
-
-        # Set diagnostic category for test prayer sensors
-        if prayer == "test":
-            self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
     def native_value(self) -> str | None:
