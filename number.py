@@ -37,7 +37,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
 
     # Get sanitized prefix for entity IDs
-    prefix = coordinator.get_sanitized_mosque_prefix()
+    prefix = coordinator.get_effective_mosque_name()
 
     entities: list[NumberEntity] = []
     for p in PRAYERS:

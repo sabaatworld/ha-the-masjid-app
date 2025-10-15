@@ -7,13 +7,6 @@ from datetime import datetime, time, timedelta
 _LOGGER = logging.getLogger(__name__)
 
 
-def safe_slug(base: str) -> str:
-    slug = base.lower().strip()
-    slug = re.sub(r"[^a-z0-9_]+", "_", slug)
-    slug = re.sub(r"_+", "_", slug).strip("_")
-    return slug or "masjid"
-
-
 def parse_prayer_time(text_time: str) -> datetime | None:
     """
     Parse prayer time string to datetime object.
@@ -36,5 +29,3 @@ def parse_prayer_time(text_time: str) -> datetime | None:
 
 def minus_minutes(dt: datetime, minutes: int) -> time:
     return (dt - timedelta(minutes=minutes)).time()
-
-

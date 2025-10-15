@@ -106,12 +106,6 @@ class MasjidDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Final fallback if no data yet
         return "Masjid"
 
-    def get_sanitized_mosque_prefix(self) -> str:
-        """Get sanitized mosque name for use as entity ID prefix."""
-        from .helpers import safe_slug
-        name = self.get_effective_mosque_name()
-        return safe_slug(name)
-
     def get_masjid_id(self) -> int:
         """Get the masjid ID from the config entry."""
         return self._masjid_id
@@ -175,5 +169,3 @@ class MasjidDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.ensure_masjid_name_persisted()
 
         return data
-
-

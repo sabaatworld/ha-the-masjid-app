@@ -81,7 +81,7 @@ class LastFetchTimeSensor(SensorEntity):
         self.coordinator = coordinator
 
         # Set entity attributes
-        prefix = coordinator.get_sanitized_mosque_prefix()
+        prefix = coordinator.get_effective_mosque_name()
         self._attr_unique_id = f"{prefix}_last_fetch_time"
         self._attr_translation_key = "last_fetch_time"
         self._attr_translation_placeholders = {}
@@ -117,7 +117,7 @@ class LastCacheTimeSensor(SensorEntity):
         self.coordinator = coordinator
 
         # Set entity attributes
-        prefix = coordinator.get_sanitized_mosque_prefix()
+        prefix = coordinator.get_effective_mosque_name()
         self._attr_unique_id = f"{prefix}_last_cache_time"
         self._attr_translation_key = "last_cache_time"
         self._attr_translation_placeholders = {}
@@ -159,7 +159,7 @@ class PrayerTimeSensor(SensorEntity):
         self._entity_type = entity_type
 
         # Set entity attributes
-        prefix = coordinator.get_sanitized_mosque_prefix()
+        prefix = coordinator.get_effective_mosque_name()
         self._attr_unique_id = f"{prefix}_{prayer}_{entity_type}"
         self._attr_name = f"{prayer.title()} {entity_type.title()}"
         self._attr_translation_key = "prayer_time"

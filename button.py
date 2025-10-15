@@ -49,7 +49,7 @@ class ForceRefreshButton(ButtonEntity):
         self.coordinator = coordinator
 
         # Set entity attributes
-        prefix = coordinator.get_sanitized_mosque_prefix()
+        prefix = coordinator.get_effective_mosque_name()
         self._attr_unique_id = f"{prefix}_force_refresh"
         self._attr_name = "Force Refresh"
         self._attr_translation_key = "force_refresh"
@@ -75,7 +75,7 @@ class TestAzanButton(ButtonEntity):
         self._entry = entry
 
         # Set entity attributes
-        prefix = coordinator.get_sanitized_mosque_prefix()
+        prefix = coordinator.get_effective_mosque_name()
         self._attr_unique_id = f"{prefix}_test_azan"
         self._attr_name = "Test Azan"
         self._attr_translation_key = "test_azan"
@@ -104,7 +104,7 @@ class TestAzanScheduleButton(ButtonEntity):
         self._entry = entry
 
         # Set entity attributes
-        prefix = coordinator.get_sanitized_mosque_prefix()
+        prefix = coordinator.get_effective_mosque_name()
         self._attr_unique_id = f"{prefix}_test_azan_schedule"
         self._attr_name = "Test Azan Schedule"
         self._attr_translation_key = "test_azan_schedule"
@@ -162,7 +162,7 @@ class TestPrayerScheduleButton(ButtonEntity):
         self._entry = entry
 
         # Set entity attributes
-        prefix = coordinator.get_sanitized_mosque_prefix()
+        prefix = coordinator.get_effective_mosque_name()
         self._attr_unique_id = f"{prefix}_test_prayer_schedule"
         self._attr_name = "Test Prayer Schedule"
         self._attr_translation_key = "test_prayer_schedule"
@@ -186,7 +186,7 @@ class TestPrayerScheduleButton(ButtonEntity):
             test_data["masjid"] = {}
 
         # Get current offset values from number entities
-        prefix = self.coordinator.get_sanitized_mosque_prefix()
+        prefix = self.coordinator.get_effective_mosque_name()
 
         # Get car start offset (default 10 minutes)
         car_mins_entity = f"number.{prefix}_car_start_minutes"

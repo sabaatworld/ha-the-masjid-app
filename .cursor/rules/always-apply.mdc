@@ -1,8 +1,0 @@
----
-alwaysApply: true
----
-
-* Use context7 always to get latest documentation.
-* Remember that this is a Home Assistant custom component and not an add-on. So documentation for add-ons may not apply to custom components.
-* Keep entity IDs in sync with entity names throughout.
-* If trying to run Python commands on OSX, use `python3` instead of `python`.
