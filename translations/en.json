@@ -98,6 +98,34 @@
       "test_prayer_schedule": {
         "name": "Test Prayer Schedule"
       }
+    },
+    "number": {
+      "azan_volume": {
+        "name": "{prayer} Azan Volume"
+      },
+      "car_start_minutes": {
+        "name": "Car Start Minutes"
+      },
+      "water_recirculation_minutes": {
+        "name": "Water Recirculation Minutes"
+      },
+      "ramadan_reminder_minutes": {
+        "name": "Ramadan Reminder Minutes"
+      }
+    },
+    "switch": {
+      "azan": {
+        "name": "Azan"
+      },
+      "ramadan_reminder": {
+        "name": "Ramadan Reminder"
+      },
+      "car_start": {
+        "name": "Car Start"
+      },
+      "water_recirculation": {
+        "name": "Water Recirculation"
+      }
     }
   }
 }

@@ -19,8 +19,7 @@ class BaseMasjidSwitch(SwitchEntity):
     _attr_has_entity_name = True
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, name: str, unique_id: str, entry: ConfigEntry, coordinator, default: bool = False) -> None:
-        self._attr_name = name
+    def __init__(self, unique_id: str, entry: ConfigEntry, coordinator, default: bool = False) -> None:
         self._attr_unique_id = unique_id
         self._entry = entry
         self._coordinator = coordinator
@@ -63,19 +62,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     prefix = coordinator.get_effective_mosque_name()
 
     entities: list[SwitchEntity] = []
-    azan_switch = AzanSwitch("Azan", f"{prefix}_{CONF_AZAN_ENABLED}", entry, coordinator, default=True)
+    azan_switch = AzanSwitch(f"{prefix}_{CONF_AZAN_ENABLED}", entry, coordinator, default=True)
     azan_switch._attr_icon = "mdi:volume-high"
     entities.append(azan_switch)
 
-    ramadan_switch = RamadanReminderSwitch("Ramadan Reminder", f"{prefix}_{CONF_RAMADAN_REMINDER_ENABLED}", entry, coordinator, default=False)
+    ramadan_switch = RamadanReminderSwitch(f"{prefix}_{CONF_RAMADAN_REMINDER_ENABLED}", entry, coordinator, default=False)
     ramadan_switch._attr_icon = "mdi:bell-plus"
     entities.append(ramadan_switch)
 
-    car_switch = CarStartSwitch("Car Start", f"{prefix}_{CONF_CAR_START_ENABLED}", entry, coordinator, default=False)
+    car_switch = CarStartSwitch(f"{prefix}_{CONF_CAR_START_ENABLED}", entry, coordinator, default=False)
     car_switch._attr_icon = "mdi:car"
     entities.append(car_switch)
 
-    water_switch = WaterRecircSwitch("Water Recirculation", f"{prefix}_{CONF_WATER_RECIRC_ENABLED}", entry, coordinator, default=False)
+    water_switch = WaterRecircSwitch(f"{prefix}_{CONF_WATER_RECIRC_ENABLED}", entry, coordinator, default=False)
     water_switch._attr_icon = "mdi:water-pump"
     entities.append(water_switch)
 
@@ -83,20 +82,36 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
 
 class AzanSwitch(BaseMasjidSwitch):
+    def __init__(self, unique_id: str, entry: ConfigEntry, coordinator, default: bool = False) -> None:
+        super().__init__(unique_id, entry, coordinator, default)
+        self._attr_translation_key = "azan"
+
     def _get_config_key(self) -> str:
         return CONF_AZAN_ENABLED
 
 
 class RamadanReminderSwitch(BaseMasjidSwitch):
+    def __init__(self, unique_id: str, entry: ConfigEntry, coordinator, default: bool = False) -> None:
+        super().__init__(unique_id, entry, coordinator, default)
+        self._attr_translation_key = "ramadan_reminder"
+
     def _get_config_key(self) -> str:
         return CONF_RAMADAN_REMINDER_ENABLED
 
 
 class CarStartSwitch(BaseMasjidSwitch):
+    def __init__(self, unique_id: str, entry: ConfigEntry, coordinator, default: bool = False) -> None:
+        super().__init__(unique_id, entry, coordinator, default)
+        self._attr_translation_key = "car_start"
+
     def _get_config_key(self) -> str:
         return CONF_CAR_START_ENABLED
 
 
 class WaterRecircSwitch(BaseMasjidSwitch):
+    def __init__(self, unique_id: str, entry: ConfigEntry, coordinator, default: bool = False) -> None:
+        super().__init__(unique_id, entry, coordinator, default)
+        self._attr_translation_key = "water_recirculation"
+
     def _get_config_key(self) -> str:
         return CONF_WATER_RECIRC_ENABLED

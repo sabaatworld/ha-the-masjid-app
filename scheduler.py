@@ -61,50 +61,40 @@ class MasjidScheduler:
         now = datetime.now()
         _LOGGER.debug("Current time: %s", now)
 
-        scheduled_count = 0
         for p in PRAYERS:
             masjid_key = AZAN_NAME_MAP[p]
+
+            # Schedule Azan
             azan_txt = azan_times.get(masjid_key)
             _LOGGER.debug("Processing prayer '%s' (API key: '%s'), azan text: '%s'", p, masjid_key, azan_txt)
 
-            if not azan_txt:
+            if azan_txt:
+                azan_dt = parse_prayer_time(azan_txt)
+                if azan_dt:
+                    # Use a lambda that captures p by value
+                    handle = async_track_time_change(
+                        self.hass,
+                        lambda _now, prayer=p: self.hass.add_job(self._handle_azan, prayer),
+                        hour=azan_dt.hour,
+                        minute=azan_dt.minute,
+                        second=0
+                    )
+                    self._handles.append(handle)
+                    _LOGGER.info("Successfully scheduled azan for %s at %s", p, azan_dt.strftime("%I:%M %p"))
+                else:
+                    _LOGGER.warning("Skipping azan scheduling for %s due to invalid time format: %s", p, azan_txt)
+            else:
                 _LOGGER.debug("No azan time found for prayer '%s', skipping", p)
-                continue
 
-            azan_dt = parse_prayer_time(azan_txt)
-            if azan_dt is None:
-                _LOGGER.warning("Skipping azan scheduling for %s due to invalid time format: %s", p, azan_txt)
-                continue
-
-            # Use async_track_time_change for daily repetition - much simpler!
-            handle = async_track_time_change(
-                self.hass,
-                lambda _now: self.hass.add_job(self._handle_azan, p),
-                hour=azan_dt.hour,
-                minute=azan_dt.minute,
-                second=0
-            )
-            self._handles.append(handle)
-            scheduled_count += 1
-            _LOGGER.info("Successfully scheduled azan for %s at %s", p, azan_dt.strftime("%I:%M %p"))
-
-        _LOGGER.info("Azan scheduling completed. Successfully scheduled %d out of %d prayers",
-                    scheduled_count, len(PRAYERS))
-
-        # For prayer times, use masjid[<prayer>] keys (zuhr for dhuhr)
-        for p in PRAYERS:
-            masjid_key = AZAN_NAME_MAP[p]
+            # Schedule Prayer-based actions (Car Start, Water Recirculation, etc.)
             prayer_txt: str = masjid.get(masjid_key, "")
             if not prayer_txt:
                 continue
+
             prayer_dt = parse_prayer_time(prayer_txt)
             if prayer_dt is None:
                 _LOGGER.warning("Skipping prayer time scheduling for %s due to invalid time format: %s", p, prayer_txt)
                 continue
-
-            prayer_at = now.replace(hour=prayer_dt.hour, minute=prayer_dt.minute, second=0, microsecond=0)
-            if prayer_at <= now:
-                prayer_at += timedelta(days=1)
 
             # Car start offset minutes - use live value from number entity
             prefix = self._coordinator.get_effective_mosque_name()
@@ -152,6 +142,8 @@ class MasjidScheduler:
                         second=0
                     )
                     self._handles.append(handle)
+
+        _LOGGER.info("Finished scheduling Azan and prayer callbacks")
 
     def _get_azan_volume(self, prayer: str) -> int:
         """Get the azan volume for a specific prayer from live entity state."""

@@ -41,14 +41,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
     entities: list[NumberEntity] = []
     for p in PRAYERS:
-        entities.append(AzanVolumeNumber(f"{p.title()} Azan Volume", f"{prefix}_{p}_{CONF_AZAN_VOLUME_BASE}", entry, p, coordinator))
+        entities.append(AzanVolumeNumber(f"{prefix}_{p}_{CONF_AZAN_VOLUME_BASE}", entry, p, coordinator))
 
-    entities.append(CarStartMinutesNumber("Car Start", f"{prefix}_{CONF_CAR_START_MINUTES}", entry, coordinator))
-    entities.append(WaterRecircMinutesNumber("Water Recirculation", f"{prefix}_{CONF_WATER_RECIRC_MINUTES}", entry, coordinator))
-    entities.append(RamadanReminderMinutesNumber("Ramadan Reminder", f"{prefix}_{CONF_RAMADAN_REMINDER_MINUTES}", entry, coordinator))
+    entities.append(CarStartMinutesNumber(f"{prefix}_{CONF_CAR_START_MINUTES}", entry, coordinator))
+    entities.append(WaterRecircMinutesNumber(f"{prefix}_{CONF_WATER_RECIRC_MINUTES}", entry, coordinator))
+    entities.append(RamadanReminderMinutesNumber(f"{prefix}_{CONF_RAMADAN_REMINDER_MINUTES}", entry, coordinator))
 
     # Add diagnostic test azan volume entity
-    test_volume_entity = AzanVolumeNumber("Test Azan Volume", f"{prefix}_test_{CONF_AZAN_VOLUME_BASE}", entry, "test", coordinator)
+    test_volume_entity = AzanVolumeNumber(f"{prefix}_test_{CONF_AZAN_VOLUME_BASE}", entry, "test", coordinator)
     test_volume_entity._attr_entity_category = EntityCategory.DIAGNOSTIC
     entities.append(test_volume_entity)
 
@@ -59,8 +59,7 @@ class BaseMasjidNumber(NumberEntity):
     _attr_has_entity_name = True
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, name: str, unique_id: str, entry: ConfigEntry, coordinator) -> None:
-        self._attr_name = name
+    def __init__(self, unique_id: str, entry: ConfigEntry, coordinator) -> None:
         self._attr_unique_id = unique_id
         self._entry = entry
         self._coordinator = coordinator
@@ -97,9 +96,11 @@ class AzanVolumeNumber(BaseMasjidNumber):
     _attr_native_unit_of_measurement = PERCENTAGE
     _attr_icon = "mdi:volume-high"
 
-    def __init__(self, name: str, unique_id: str, entry: ConfigEntry, prayer: str, coordinator) -> None:
-        super().__init__(name, unique_id, entry, coordinator)
+    def __init__(self, unique_id: str, entry: ConfigEntry, prayer: str, coordinator) -> None:
+        super().__init__(unique_id, entry, coordinator)
         self._prayer = prayer
+        self._attr_translation_key = "azan_volume"
+        self._attr_translation_placeholders = {"prayer": prayer.title()}
         # Load saved value or use default
         self._value = entry.options.get(self._get_config_key(), 50)
 
@@ -122,8 +123,9 @@ class CarStartMinutesNumber(BaseMasjidNumber):
     _attr_native_unit_of_measurement = UnitOfTime.MINUTES
     _attr_icon = "mdi:timer"
 
-    def __init__(self, name: str, unique_id: str, entry: ConfigEntry, coordinator) -> None:
-        super().__init__(name, unique_id, entry, coordinator)
+    def __init__(self, unique_id: str, entry: ConfigEntry, coordinator) -> None:
+        super().__init__(unique_id, entry, coordinator)
+        self._attr_translation_key = "car_start_minutes"
         # Load saved value or use default
         self._value = entry.options.get(CONF_CAR_START_MINUTES, CAR_START_MINUTES_DEFAULT)
 
@@ -138,8 +140,9 @@ class WaterRecircMinutesNumber(BaseMasjidNumber):
     _attr_native_unit_of_measurement = UnitOfTime.MINUTES
     _attr_icon = "mdi:timer"
 
-    def __init__(self, name: str, unique_id: str, entry: ConfigEntry, coordinator) -> None:
-        super().__init__(name, unique_id, entry, coordinator)
+    def __init__(self, unique_id: str, entry: ConfigEntry, coordinator) -> None:
+        super().__init__(unique_id, entry, coordinator)
+        self._attr_translation_key = "water_recirculation_minutes"
         # Load saved value or use default
         self._value = entry.options.get(CONF_WATER_RECIRC_MINUTES, WATER_RECIRC_MINUTES_DEFAULT)
 
@@ -154,8 +157,9 @@ class RamadanReminderMinutesNumber(BaseMasjidNumber):
     _attr_native_unit_of_measurement = UnitOfTime.MINUTES
     _attr_icon = "mdi:timer"
 
-    def __init__(self, name: str, unique_id: str, entry: ConfigEntry, coordinator) -> None:
-        super().__init__(name, unique_id, entry, coordinator)
+    def __init__(self, unique_id: str, entry: ConfigEntry, coordinator) -> None:
+        super().__init__(unique_id, entry, coordinator)
+        self._attr_translation_key = "ramadan_reminder_minutes"
         # Load saved value or use default
         self._value = entry.options.get(CONF_RAMADAN_REMINDER_MINUTES, RAMADAN_REMINDER_MINUTES_DEFAULT)
 
