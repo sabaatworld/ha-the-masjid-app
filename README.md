@@ -4,154 +4,84 @@
   <p><em>Home Assistant custom integration</em></p>
 </div>
 
-Author
+## Introduction
 
-- name: "Sabaat Ahmad"
-- email: "sabaatworld@gmail.com"
+The Masjid App integration for Home Assistant brings your local mosque's prayer schedule right into your smart home. By fetching prayer times from `themasjidapp.net`, this integration allows you to create powerful automations, such as playing the Azan, preparing your home for prayer, and receiving timely reminders.
 
-Overview
+## Key Features
 
-The Masjid App integration fetches prayer times from `themasjidapp.net/<masjid_id>` and automates:
-- Azan playback at azan times, with per-prayer volume and optional pausing/resuming of other media players
-- Pre-prayer actions: optional car start and water recirculation before each prayer
-- Ramadan reminder (TTS) before Maghrib when Ramadan reminder is on
+- **Prayer Time Sensors**: Creates sensors for both Azan and Iqama times for all daily prayers.
+- **Automated Azan Playback**: Plays the Azan on your smart speakers at the correct time.
+  - **Per-Prayer Volume Control**: Set a custom volume for each of the five daily prayers.
+  - **Pause & Resume**: Automatically pauses other media players during the Azan and resumes them afterward.
+- **Advanced Pre-Prayer Automation**:
+  - **Car Start**: Automatically start your car a few minutes before prayer time.
+  - **Water Recirculation**: Trigger your water pump to ensure hot water is ready for wudu.
+  - **Presence-Aware**: Automations only run when you're home, based on your configured presence sensors.
+- **Ramadan Reminders**: Get a special TTS reminder before Maghrib prayer during the month of Ramadan.
+- **Fully UI-Configurable**: No YAML required. Set up and manage the integration entirely through the Home Assistant UI.
+- **Robust & Resilient**: Caches prayer times to ensure automations run even if the server is temporarily unavailable.
 
-Key features
+## Screenshots
 
-- UI-based configuration (no YAML)
-- Optional features are completely skipped if not configured
-- Prayer time polling interval (hours) with in-memory caching for fallback when the server is unreachable
-- Entities named using a sanitized mosque name to ensure valid entity IDs
-- Improved entity names for better clarity and user experience
-- Consistent icon design for easy visual identification
+*(Placeholder for screenshots of the integration's configuration and entities)*
 
-Installation
+## Installation
 
-1) Copy this folder `ha_the_masjid_app` into `config/custom_components/`.
-2) Restart Home Assistant.
-3) Go to Settings → Devices & Services → Add Integration → search for "The Masjid App".
+1.  Copy the `ha_the_masjid_app` folder into your Home Assistant `config/custom_components/` directory.
+2.  Restart Home Assistant.
+3.  Go to **Settings → Devices & Services → Add Integration** and search for "The Masjid App".
 
-Configuration (via UI)
+## Configuration
 
-- Required
-  - Masjid ID: numeric ID (e.g., `41` means times at `http://themasjidapp.net/41`)
-  - Fetch Interval (Hours): integer 1–12
+The integration is configured through the UI. Here are the available options:
 
+| Option                        | Required | Description                                                                                                                                                           |
+| ----------------------------- | :------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Masjid ID**                 |   Yes    | The numeric ID of your mosque from `themasjidapp.net`.                                                                                                                  |
+| **Refresh Interval**          |   Yes    | How often (in hours) to fetch updated prayer times.                                                                                                                   |
+| **Media Player for Azan**     |    No    | The `media_player` entity that will play the Azan audio.                                                                                                              |
+| **Azan Media Content**        |    No    | The media content for the Azan (e.g., a local file or URL).                                                                                                           |
+| **Azan Duration**             |    No    | The length of your Azan audio file in seconds.                                                                                                                        |
+| **Media Players to Pause**    |    No    | A list of `media_player` entities to pause during the Azan.                                                                                                           |
+| **Water Recirculation Action**|    No    | The service to call for water recirculation (e.g., `script.start_pump`).                                                                                              |
+| **Car Start Action**          |    No    | The service to call to start your car (e.g., `script.warm_car`).                                                                                                      |
+| **Presence Sensors**          |    No    | A list of sensors to determine if someone is home.                                                                                                                    |
+| **TTS Entity for Ramadan**    |    No    | The `tts` entity to use for Ramadan reminders.                                                                                                                        |
 
+## Entities Created
 
-- Optional (each skipped if left empty)
-  - Media Player For Azan: `media_player.xxx`
-  - Azan Media Content ID: media-source or URL (e.g., `media-source://media_source/local/Prayers/azan.mp3`)
-  - Azan Media Length (Seconds): used to restore volume and resume other players after playback
-  - Players To Pause During Azan: select multiple `media_player` entities
-  - Water Recirculation Service: `domain.service` (e.g., `script.start_garage_water_pump`)
-  - Water Recirculation Params: comma-separated `key=value` pairs (e.g., `entity_id=switch.pump,duration=60`)
-  - Car Start Service: `domain.service` (e.g., `ad_drone.start_car`)
-  - Car Start Params: comma-separated `key=value` pairs (e.g., `auto_stop_mins=4`)
-  - Presence Sensors: select multiple sensors (binary sensors, device trackers, person entities) - only runs car/pump actions when ALL selected sensors indicate presence
-  - TTS Entity For Ramadan Reminder: used for Ramadan reminder (e.g., `tts.piper`)
+This integration creates the following entities, all prefixed with a sanitized version of your mosque's name (e.g., `sensor.your_mosque_fajr_azan`):
 
-Entities
+-   **Sensors**:
+    -   `sensor.<mosque>_<prayer>_azan`: The time of the Azan for each prayer.
+    -   `sensor.<mosque>_<prayer>_iqama`: The time of the Iqama for each prayer.
+    -   `sensor.<mosque>_last_fetch_time`: When prayer times were last fetched.
+    -   `sensor.<mosque>_last_cache_time`: When prayer times were last cached.
+-   **Switches**:
+    -   `switch.<mosque>_azan`: Enable/disable Azan playback.
+    -   `switch.<mosque>_ramadan_reminder`: Enable/disable Ramadan reminders.
+    -   `switch.<mosque>_car_start`: Enable/disable the car start automation.
+    -   `switch.<mosque>_water_recirculation`: Enable/disable the water recirculation automation.
+-   **Numbers**:
+    -   `number.<mosque>_<prayer>_azan_volume`: Adjust the Azan volume for each prayer.
+    -   `number.<mosque>_car_start_minutes`: Set the offset (in minutes) for the car start automation.
+    -   `number.<mosque>_water_recirculation_minutes`: Set the offset for the water recirculation automation.
+    -   `number.<mosque>_ramadan_reminder_minutes`: Set the offset for the Ramadan reminder.
+-   **Buttons** (for diagnostics and testing):
+    -   `button.<mosque>_force_refresh`: Manually fetch the latest prayer times.
+    -   `button.<mosque>_test_azan`: Play a test Azan.
+    -   `button.<mosque>_test_azan_schedule`: Test the Azan scheduling logic.
+    -   `button.<mosque>_test_prayer_schedule`: Test the prayer automation scheduling logic.
 
-All entity IDs begin with a sanitized slug based on your mosque name to avoid invalid characters.
+## Advanced Details
 
-- Switches
-  - `<mosque>_azan_enabled`: Turn azan playback on/off
-  - `<mosque>_ramadan_reminder`: Enable Ramadan reminder behavior
-  - `<mosque>_car_start_enabled`: Enable car-start automation
-  - `<mosque>_water_recirc_enabled`: Enable water recirculation automation
+-   **Scheduling**: The integration's scheduler automatically updates when new prayer times are fetched or when any of the minute-offset numbers are changed.
+-   **Caching**: If the integration cannot fetch new prayer times, it will use the last successfully fetched data from its cache.
+-   **Entity Naming**: The mosque name is sanitized to create valid and unique entity IDs.
 
-- Numbers
-  - `<mosque>_<prayer>_azan_volume`: One per prayer (Fajr/Dhuhr/Asr/Maghrib/Isha), 0–100, step 5, default 50%
-  - `<mosque>_car_start_minutes`: Default 10, 0–30, step 1
-  - `<mosque>_water_recirc_minutes`: Default 15, 0–30, step 1
-  - `<mosque>_ramadan_reminder_minutes`: Default 2, 0–30, step 1
+## Support & Contribution
 
-- Time Entities (Read-only)
-  - `<prayer>_azan`: Prayer azan times (Fajr/Dhuhr/Asr/Maghrib/Isha)
-  - `<prayer>_iqama`: Prayer iqama times (Fajr/Dhuhr/Asr/Maghrib/Isha)
+If you have any issues or suggestions, please [open an issue on GitHub](https://github.com/sabaatworld/ha-the-masjid-app/issues).
 
-- Diagnostic Sensors
-  - `last_fetch_time`: Timestamp of last successful data fetch
-  - `last_cache_time`: Timestamp of last successful data cache update
-
-- Configuration Entities (Device Configuration)
-  - **Configuration Sensors**:
-    - `masjid_id`: Masjid ID from configuration
-    - `refresh_interval_hours`: Fetch interval from configuration
-    - `media_player`: Media player entity ID from configuration
-    - `media_content_id`: Media content ID from configuration
-    - `media_content_length`: Media content length from configuration
-    - `media_players_to_pause`: Media players to pause from configuration
-    - `action_water_recirculation`: Water recirculation action from configuration
-    - `action_water_recirculation_params`: Water recirculation parameters from configuration (JSON object)
-    - `action_car_start`: Car start action from configuration
-    - `action_car_start_params`: Car start parameters from configuration (JSON object)
-    - `presence_sensors`: List of presence sensors from configuration
-    - `tts_entity`: TTS entity from configuration
-  - **Configuration Numbers**:
-    - `<prayer>_azan_volume`: Azan volume controls for each prayer
-    - `car_start`: Car start timer (minutes)
-    - `water_recirculation`: Water recirculation timer (minutes)
-    - `ramadan_reminder`: Ramadan reminder timer (minutes)
-  - **Configuration Switches**:
-    - `azan`: Azan feature toggle
-    - `ramadan_reminder`: Ramadan reminder toggle
-    - `car_start`: Car start feature toggle
-    - `water_recirculation`: Water recirculation feature toggle
-
-Behavior and scheduling
-
-- Data fetching
-  - Polls `http://themasjidapp.net/<masjid_id>` on the configured interval.
-  - Caches the latest successful JSON and uses it on fetch failures.
-
-- Scheduling
-  - Azan plays at azan time (requires media player + content ID). Sets per-prayer volume, pauses listed players during playback, restores volume and resumes after `length + 3s`.
-  - Car start runs at prayer time minus `<mosque>_car_start_minutes` (requires car service; presence is respected if configured).
-  - Water recirculation runs at prayer time minus `<mosque>_water_recirc_minutes` (requires water service; presence is respected if configured).
-  - Ramadan reminder runs at Maghrib time minus `<mosque>_ramadan_reminder_minutes` (requires TTS entity and Ramadan reminder switch ON).
-  - Schedule automatically refreshes when new prayer times are fetched and when the minute-offset numbers change.
-
-Entity naming and slugging
-
-- The mosque name from server is sanitized to a lowercase slug with only `[a-z0-9_]` to ensure valid entity IDs.
-
-Entity icons and visual design
-
-- All entities include appropriate Material Design Icons (MDI) for better visual identification:
-  - Azan entities: volume-high icon
-  - Car-related entities: car icon (switches) and timer icon (time settings)
-  - Water recirculation: water-pump icon (switches) and timer icon (time settings)
-  - Ramadan reminder: bell-plus icon (switches) and timer icon (time settings)
-  - Prayer time entities: clock icon (time entities)
-  - Diagnostic entities: information icon (diagnostic sensors)
-  - Configuration entities: settings/volume/timer/car/water icons (configuration sensors, numbers, switches)
-
-Advanced notes
-
-- Action parameter format: parameters are provided as JSON objects and passed directly as service data.
-- If azan media player or content ID are not provided, azan playback is skipped entirely.
-- If presence sensor is provided and is `off`, car/water actions are skipped.
-- The integration creates time, sensor, number, and switch entities.
-- Time entities are read-only and display prayer times in a user-friendly format.
-- Diagnostic sensors provide information about data fetching and caching status.
-- Configuration entities (sensors, numbers, switches) are grouped in the device configuration section using EntityCategory.CONFIG.
-- Only last fetch and last cache time sensors are diagnostic entities using EntityCategory.DIAGNOSTIC.
-- All entities are grouped under a device named after the mosque name from the configuration.
-- The device includes all entity types: time, sensor, number, and switch entities.
-
-Uninstall
-
-- Remove the integration from Settings → Devices & Services, then delete the folder from `custom_components` if desired.
-
-Support
-
-- Author: "Sabaat Ahmad" <sabaatworld@gmail.com>
-- This project was translated from an AppDaemon script to a native Home Assistant integration.
-
-Attribution and icon
-
-- A simple mosque-themed SVG icon is included as `icon.svg` in this directory for branding in documentation and stores.
-
-
+Authored by [Sabaat Ahmad](mailto:sabaatworld@gmail.com).
