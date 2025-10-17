@@ -49,6 +49,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     entities: list[NumberEntity] = []
     for p in PRAYERS:
         entity = AzanVolumeNumber(f"{prefix}_{p}_{CONF_AZAN_VOLUME_BASE}", entry, p, coordinator)
+        if p == "test":
+            entity._attr_entity_category = EntityCategory.DIAGNOSTIC
         entities.append(entity)
         entity_registry.register_entity(f"{ENTITY_KEY_AZAN_VOLUME_BASE}_{p}", entity)
 
@@ -63,12 +65,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     ramadan_reminder_entity = RamadanReminderMinutesNumber(f"{prefix}_{CONF_RAMADAN_REMINDER_MINUTES}", entry, coordinator)
     entities.append(ramadan_reminder_entity)
     entity_registry.register_entity(ENTITY_KEY_RAMADAN_REMINDER_MINUTES, ramadan_reminder_entity)
-
-    # Add diagnostic test azan volume entity
-    test_volume_entity = AzanVolumeNumber(f"{prefix}_test_{CONF_AZAN_VOLUME_BASE}", entry, "test", coordinator)
-    test_volume_entity._attr_entity_category = EntityCategory.DIAGNOSTIC
-    entities.append(test_volume_entity)
-    entity_registry.register_entity(f"{ENTITY_KEY_AZAN_VOLUME_BASE}_test", test_volume_entity)
 
     async_add_entities(entities)
 

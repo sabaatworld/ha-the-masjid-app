@@ -51,7 +51,28 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    unload_ok = await hass.config_entries.async_unload_platforms(entry, ["number", "switch", "sensor", "button"])
+    """Unload a config entry."""
+    _LOGGER.debug("Unloading Masjid App integration")
+
+    # Retrieve the scheduler instance
+    masjid_data = hass.data[DOMAIN].get(entry.entry_id)
+    if masjid_data and "scheduler" in masjid_data:
+        scheduler = masjid_data["scheduler"]
+        _LOGGER.debug("Clearing all scheduled callbacks")
+        scheduler.clear_schedules()
+    else:
+        _LOGGER.error("Scheduler not found during unload, cannot clear callbacks.")
+
+    # Unload platforms
+    unload_ok = await hass.config_entries.async_unload_platforms(
+        entry, ["number", "switch", "sensor", "button"]
+    )
+
+    # Clean up hass.data
     if unload_ok:
         hass.data[DOMAIN].pop(entry.entry_id, None)
+        _LOGGER.debug("Masjid App integration unloaded successfully")
+    else:
+        _LOGGER.error("Failed to unload one or more platforms")
+
     return unload_ok
