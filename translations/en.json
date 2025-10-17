@@ -26,9 +26,9 @@
           "media_content_length": "The duration of your Azan audio file in seconds. This is used to automatically restore volume and resume other media players after the Azan finishes playing. Set this accurately for proper timing.",
           "media_players_to_pause": "Select media players that should be paused while Azan is playing. These will be automatically paused when Azan starts and resumed after it finishes. Useful for TVs, radios, or other audio sources.",
           "action_water_recirculation": "Select an action to run before prayers to start water recirculation (e.g., 'script.start_pump', 'switch.turn_on', 'climate.set_temperature'). Choose from available actions or leave empty to disable.",
-          "action_water_recirculation_params": "Additional parameters for the water recirculation action as a JSON object. Example: {'entity_id': 'switch.pump', 'temperature': 25}. Use this to pass specific data to your action.",
+          "action_water_recirculation_params": "Additional parameters for the water recirculation action as a JSON object. Use this to pass specific data to your action.",
           "action_car_start": "Select an action to run before prayers to start your car (e.g., 'ad_drone.start_car', 'script.warm_car'). Choose from available actions or leave empty to disable.",
-          "action_car_start_params": "Additional parameters for the car start action as a JSON object. Example: {'duration': 10, 'temperature': 22}. Use this to pass specific data to your car start action.",
+          "action_car_start_params": "Additional parameters for the car start action as a JSON object. Use this to pass specific data to your car start action.",
           "presence_sensors": "Select presence sensors (binary sensors, device trackers, or person entities) that indicate when someone is home. Water recirculation and car start actions will only run when ALL selected sensors indicate presence. Leave empty to always run actions.",
           "tts_entity": "Select a text-to-speech entity for Ramadan Maghrib reminders. This will announce when Maghrib prayer is approaching during Ramadan. Examples: 'tts.google_translate_say', 'tts.cloud_say'. Leave empty to disable."
         }
@@ -55,9 +55,9 @@
           "media_content_length": "The duration of your Azan audio file in seconds. This is used to automatically restore volume and resume other media players after the Azan finishes playing. Set this accurately for proper timing.",
           "media_players_to_pause": "Select media players that should be paused while Azan is playing. These will be automatically paused when Azan starts and resumed after it finishes. Useful for TVs, radios, or other audio sources.",
           "action_water_recirculation": "Select an action to run before prayers to start water recirculation (e.g., 'script.start_pump', 'switch.turn_on', 'climate.set_temperature'). Choose from available actions or leave empty to disable.",
-          "action_water_recirculation_params": "Additional parameters for the water recirculation action as a JSON object. Example: {'entity_id': 'switch.pump', 'temperature': 25}. Use this to pass specific data to your action.",
+          "action_water_recirculation_params": "Additional parameters for the water recirculation action as a JSON object. Use this to pass specific data to your action.",
           "action_car_start": "Select an action to run before prayers to start your car (e.g., 'ad_drone.start_car', 'script.warm_car'). Choose from available actions or leave empty to disable.",
-          "action_car_start_params": "Additional parameters for the car start action as a JSON object. Example: {'duration': 10, 'temperature': 22}. Use this to pass specific data to your car start action.",
+          "action_car_start_params": "Additional parameters for the car start action as a JSON object. Use this to pass specific data to your car start action.",
           "presence_sensors": "Select presence sensors (binary sensors, device trackers, or person entities) that indicate when someone is home. Water recirculation and car start actions will only run when ALL selected sensors indicate presence. Leave empty to always run actions.",
           "tts_entity": "Select a text-to-speech entity for Ramadan Maghrib reminders. This will announce when Maghrib prayer is approaching during Ramadan. Examples: 'tts.google_translate_say', 'tts.cloud_say'. Leave empty to disable."
         }

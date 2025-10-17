@@ -4,7 +4,6 @@ Script to analyze API usage data and calculate total costs and usage metrics.
 """
 
 import csv
-import json
 from collections import defaultdict
 from datetime import datetime
 
