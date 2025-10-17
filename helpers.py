@@ -3,8 +3,28 @@ from __future__ import annotations
 import logging
 import re
 from datetime import datetime, time, timedelta
+from typing import Any
+
+from homeassistant.helpers.entity import Entity
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class MasjidEntityRegistry:
+    """Registry for entities in The Masjid App integration."""
+
+    def __init__(self) -> None:
+        """Initialize the registry."""
+        self._entities: dict[str, Entity] = {}
+
+    def register_entity(self, key: str, entity: Entity) -> None:
+        """Register an entity."""
+        self._entities[key] = entity
+        _LOGGER.debug("Registered entity with key: %s", key)
+
+    def get_entity(self, key: str) -> Entity | None:
+        """Get an entity from the registry."""
+        return self._entities.get(key)
 
 
 def parse_prayer_time(text_time: str) -> datetime | None:

@@ -29,18 +29,31 @@ from .const import (
     CONF_WATER_RECIRC_MINUTES,
     CONF_RAMADAN_REMINDER_MINUTES,
     CONF_AZAN_VOLUME_BASE,
+    ENTITY_KEY_CAR_START_MINUTES,
+    ENTITY_KEY_WATER_RECIRC_MINUTES,
+    ENTITY_KEY_RAMADAN_REMINDER_MINUTES,
+    ENTITY_KEY_AZAN_VOLUME_BASE,
+    ENTITY_KEY_AZAN_ENABLED,
+    ENTITY_KEY_CAR_START_ENABLED,
+    ENTITY_KEY_WATER_RECIRC_ENABLED,
+    ENTITY_KEY_RAMADAN_REMINDER_ENABLED,
+    CAR_START_MINUTES_DEFAULT,
+    WATER_RECIRC_MINUTES_DEFAULT,
+    RAMADAN_REMINDER_MINUTES_DEFAULT,
+    AZAN_VOLUME_DEFAULT,
 )
-from .helpers import parse_prayer_time
-from .utils import get_number, get_switch_state, all_presence_sensors_present
+from .helpers import parse_prayer_time, MasjidEntityRegistry
+from .utils import all_presence_sensors_present
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class MasjidScheduler:
-    def __init__(self, hass: HomeAssistant, entry_options: dict[str, Any], coordinator) -> None:
+    def __init__(self, hass: HomeAssistant, entry_options: dict[str, Any], coordinator, entity_registry: MasjidEntityRegistry) -> None:
         self.hass: HomeAssistant = hass
         self.entry_options: dict[str, Any] = entry_options
         self._coordinator = coordinator
+        self._entity_registry: MasjidEntityRegistry = entity_registry
         self._handles: list[CALLBACK_TYPE] = []
 
     def clear_schedules(self) -> None:
@@ -97,9 +110,8 @@ class MasjidScheduler:
                 continue
 
             # Car start offset minutes - use live value from number entity
-            prefix = self._coordinator.get_effective_mosque_name()
-            car_mins_entity = f"number.{prefix}_{CONF_CAR_START_MINUTES}"
-            car_mins = max(0, int(get_number(self.hass, car_mins_entity, 10.0)))
+            car_mins_entity = self._entity_registry.get_entity(ENTITY_KEY_CAR_START_MINUTES)
+            car_mins = max(0, int(car_mins_entity.native_value if car_mins_entity else CAR_START_MINUTES_DEFAULT))
 
             if car_mins > 0:
                 car_time = prayer_dt - timedelta(minutes=car_mins)
@@ -113,8 +125,8 @@ class MasjidScheduler:
                 self._handles.append(handle)
 
             # Water recirculation offset minutes - use live value from number entity
-            water_mins_entity = f"number.{prefix}_{CONF_WATER_RECIRC_MINUTES}"
-            water_mins = max(0, int(get_number(self.hass, water_mins_entity, 15.0)))
+            water_mins_entity = self._entity_registry.get_entity(ENTITY_KEY_WATER_RECIRC_MINUTES)
+            water_mins = max(0, int(water_mins_entity.native_value if water_mins_entity else WATER_RECIRC_MINUTES_DEFAULT))
 
             if water_mins > 0:
                 water_time = prayer_dt - timedelta(minutes=water_mins)
@@ -129,8 +141,8 @@ class MasjidScheduler:
 
             # Ramadan reminder only for maghrib; offset minutes - use live value from number entity
             if p == "maghrib":
-                rem_mins_entity = f"number.{prefix}_{CONF_RAMADAN_REMINDER_MINUTES}"
-                rem_mins = max(0, int(get_number(self.hass, rem_mins_entity, 2.0)))
+                rem_mins_entity = self._entity_registry.get_entity(ENTITY_KEY_RAMADAN_REMINDER_MINUTES)
+                rem_mins = max(0, int(rem_mins_entity.native_value if rem_mins_entity else RAMADAN_REMINDER_MINUTES_DEFAULT))
 
                 if rem_mins > 0:
                     rem_time = prayer_dt - timedelta(minutes=rem_mins)
@@ -147,9 +159,8 @@ class MasjidScheduler:
 
     def _get_azan_volume(self, prayer: str) -> int:
         """Get the azan volume for a specific prayer from live entity state."""
-        prefix = self._coordinator.get_effective_mosque_name()
-        entity_id = f"number.{prefix}_{prayer}_{CONF_AZAN_VOLUME_BASE}"
-        return int(get_number(self.hass, entity_id, 50.0))
+        entity = self._entity_registry.get_entity(f"{ENTITY_KEY_AZAN_VOLUME_BASE}_{prayer}")
+        return int(entity.native_value if entity else AZAN_VOLUME_DEFAULT)
 
     async def _prepare_media_playback(self, media_player: str, volume_percent: int, context: str) -> float:
         """
@@ -217,10 +228,9 @@ class MasjidScheduler:
 
         # Check if azan is enabled using live switch state (skip check for test calls)
         if prayer != "test":
-            prefix = self._coordinator.get_effective_mosque_name()
-            azan_switch_id = f"switch.{prefix}_{CONF_AZAN_ENABLED}"
-            azan_enabled = get_switch_state(self.hass, azan_switch_id, True)
-            _LOGGER.debug("Azan enabled switch (%s) state: %s", azan_switch_id, azan_enabled)
+            azan_switch = self._entity_registry.get_entity(ENTITY_KEY_AZAN_ENABLED)
+            azan_enabled = azan_switch.is_on if azan_switch else True
+            _LOGGER.debug("Azan enabled switch state: %s", azan_enabled)
             if not azan_enabled:
                 _LOGGER.info("Azan is disabled via switch, skipping azan for %s", prayer)
                 return
@@ -274,10 +284,9 @@ class MasjidScheduler:
         _LOGGER.debug("Car start handler triggered")
 
         # Check if car start is enabled using live switch state
-        prefix = self._coordinator.get_effective_mosque_name()
-        car_switch_id = f"switch.{prefix}_{CONF_CAR_START_ENABLED}"
-        car_enabled = get_switch_state(self.hass, car_switch_id, False)
-        _LOGGER.debug("Car start enabled switch (%s) state: %s", car_switch_id, car_enabled)
+        car_switch = self._entity_registry.get_entity(ENTITY_KEY_CAR_START_ENABLED)
+        car_enabled = car_switch.is_on if car_switch else False
+        _LOGGER.debug("Car start enabled switch state: %s", car_enabled)
 
         if not car_enabled:
             _LOGGER.debug("Car start is disabled via switch, skipping")
@@ -315,10 +324,9 @@ class MasjidScheduler:
         _LOGGER.debug("Water recirculation handler triggered")
 
         # Check if water recirculation is enabled using live switch state
-        prefix = self._coordinator.get_effective_mosque_name()
-        water_switch_id = f"switch.{prefix}_{CONF_WATER_RECIRC_ENABLED}"
-        recirc_enabled = get_switch_state(self.hass, water_switch_id, False)
-        _LOGGER.debug("Water recirculation enabled switch (%s) state: %s", water_switch_id, recirc_enabled)
+        water_switch = self._entity_registry.get_entity(ENTITY_KEY_WATER_RECIRC_ENABLED)
+        recirc_enabled = water_switch.is_on if water_switch else False
+        _LOGGER.debug("Water recirculation enabled switch state: %s", recirc_enabled)
 
         if not recirc_enabled:
             _LOGGER.debug("Water recirculation is disabled via switch, skipping")
@@ -356,10 +364,9 @@ class MasjidScheduler:
         _LOGGER.debug("Ramadan reminder handler triggered")
 
         # Check if ramadan reminder is enabled using live switch state
-        prefix = self._coordinator.get_effective_mosque_name()
-        ramadan_switch_id = f"switch.{prefix}_{CONF_RAMADAN_REMINDER_ENABLED}"
-        ramadan_on = get_switch_state(self.hass, ramadan_switch_id, False)
-        _LOGGER.debug("Ramadan reminder switch (%s) state: %s", ramadan_switch_id, ramadan_on)
+        ramadan_switch = self._entity_registry.get_entity(ENTITY_KEY_RAMADAN_REMINDER_ENABLED)
+        ramadan_on = ramadan_switch.is_on if ramadan_switch else False
+        _LOGGER.debug("Ramadan reminder switch state: %s", ramadan_on)
 
         if not ramadan_on:
             _LOGGER.debug("Ramadan reminder is disabled via switch, skipping")
@@ -378,9 +385,9 @@ class MasjidScheduler:
         _LOGGER.debug("Reminder volume (using maghrib azan volume): %s%%", vol_percent)
 
         # Use live value from number entity
-        mins_entity_id = f"number.{prefix}_{CONF_RAMADAN_REMINDER_MINUTES}"
-        mins = int(get_number(self.hass, mins_entity_id, 2.0))
-        _LOGGER.debug("Ramadan reminder minutes from entity (%s): %s", mins_entity_id, mins)
+        mins_entity = self._entity_registry.get_entity(ENTITY_KEY_RAMADAN_REMINDER_MINUTES)
+        mins = int(mins_entity.native_value if mins_entity else 2.0)
+        _LOGGER.debug("Ramadan reminder minutes: %s", mins)
 
         minute_word = "minute" if mins == 1 else "minutes"
         message = f"Maghrib prayer will start in {mins} {minute_word}"
@@ -403,7 +410,3 @@ class MasjidScheduler:
         # Restore volume after a short delay (TTS typically takes a few seconds)
         _LOGGER.debug("Scheduling volume restoration after 5 seconds")
         await self._restore_volume_and_resume(media_player, previous_volume, delay_seconds=5)
-
-    def attach_listeners(self) -> None:
-        """No longer needed - scheduler now reads live entity states directly."""
-        pass

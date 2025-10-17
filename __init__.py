@@ -10,6 +10,7 @@ from homeassistant.helpers.typing import ConfigType
 from .const import DOMAIN, DEFAULT_REFRESH_INTERVAL_HOURS, CONF_MASJID_ID, CONF_REFRESH_INTERVAL_HOURS
 from .coordinator import MasjidDataCoordinator
 from .scheduler import MasjidScheduler
+from .helpers import MasjidEntityRegistry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,12 +29,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         config_entry=entry,
     )
 
-    scheduler = MasjidScheduler(hass, entry.options, coordinator)
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {"coordinator": coordinator, "scheduler": scheduler}
+    entity_registry = MasjidEntityRegistry()
+    scheduler = MasjidScheduler(hass, entry.options, coordinator, entity_registry)
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
+        "coordinator": coordinator,
+        "scheduler": scheduler,
+        "entity_registry": entity_registry,
+    }
 
     await coordinator.async_config_entry_first_refresh()
     if coordinator.data:
-        scheduler.attach_listeners()
         scheduler.schedule_from_data(coordinator.data)
 
     def _on_update() -> None:

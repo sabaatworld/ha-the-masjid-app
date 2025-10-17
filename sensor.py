@@ -11,8 +11,9 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
-from .const import DOMAIN, PRAYERS
+from .const import DOMAIN, PRAYERS, ENTITY_KEY_LAST_FETCH_TIME, ENTITY_KEY_LAST_CACHE_TIME, ENTITY_KEY_PRAYER_TIME_BASE
 from .coordinator import MasjidDataCoordinator
+from .helpers import MasjidEntityRegistry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -36,34 +37,39 @@ async def async_setup_entry(
 ) -> None:
     """Set up the sensor entities from a config entry."""
     coordinator: MasjidDataCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    entity_registry: MasjidEntityRegistry = hass.data[DOMAIN][entry.entry_id]["entity_registry"]
 
     # Create diagnostic sensor entities
-    sensor_entities = [
-        LastFetchTimeSensor(coordinator),
-        LastCacheTimeSensor(coordinator),
-    ]
+    sensor_entities = []
+    last_fetch_entity = LastFetchTimeSensor(coordinator)
+    sensor_entities.append(last_fetch_entity)
+    entity_registry.register_entity(ENTITY_KEY_LAST_FETCH_TIME, last_fetch_entity)
+
+    last_cache_entity = LastCacheTimeSensor(coordinator)
+    sensor_entities.append(last_cache_entity)
+    entity_registry.register_entity(ENTITY_KEY_LAST_CACHE_TIME, last_cache_entity)
 
     # Add prayer time sensor entities
     for prayer in PRAYERS:
         if prayer != "test":
-            sensor_entities.append(
-                PrayerTimeSensor(
-                    coordinator=coordinator,
-                    prayer=prayer,
-                    entity_type="azan"
-                )
+            azan_entity = PrayerTimeSensor(
+                coordinator=coordinator,
+                prayer=prayer,
+                entity_type="azan"
             )
+            sensor_entities.append(azan_entity)
+            entity_registry.register_entity(f"{ENTITY_KEY_PRAYER_TIME_BASE}_{prayer}_azan", azan_entity)
 
     # Add iqama time sensor entities
     for prayer in PRAYERS:
         if prayer != "test":
-            sensor_entities.append(
-                PrayerTimeSensor(
-                    coordinator=coordinator,
-                    prayer=prayer,
-                    entity_type="iqama"
-                )
+            iqama_entity = PrayerTimeSensor(
+                coordinator=coordinator,
+                prayer=prayer,
+                entity_type="iqama"
             )
+            sensor_entities.append(iqama_entity)
+            entity_registry.register_entity(f"{ENTITY_KEY_PRAYER_TIME_BASE}_{prayer}_iqama", iqama_entity)
 
     async_add_entities(sensor_entities)
 

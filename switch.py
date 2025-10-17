@@ -12,7 +12,12 @@ from .const import (
     CONF_RAMADAN_REMINDER_ENABLED,
     CONF_CAR_START_ENABLED,
     CONF_WATER_RECIRC_ENABLED,
+    ENTITY_KEY_AZAN_ENABLED,
+    ENTITY_KEY_CAR_START_ENABLED,
+    ENTITY_KEY_WATER_RECIRC_ENABLED,
+    ENTITY_KEY_RAMADAN_REMINDER_ENABLED,
 )
+from .helpers import MasjidEntityRegistry
 
 
 class BaseMasjidSwitch(SwitchEntity):
@@ -57,6 +62,7 @@ class BaseMasjidSwitch(SwitchEntity):
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     # Get coordinator
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    entity_registry: MasjidEntityRegistry = hass.data[DOMAIN][entry.entry_id]["entity_registry"]
 
     # Get sanitized prefix for entity IDs
     prefix = coordinator.get_effective_mosque_name()
@@ -65,18 +71,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     azan_switch = AzanSwitch(f"{prefix}_{CONF_AZAN_ENABLED}", entry, coordinator, default=True)
     azan_switch._attr_icon = "mdi:volume-high"
     entities.append(azan_switch)
+    entity_registry.register_entity(ENTITY_KEY_AZAN_ENABLED, azan_switch)
 
     ramadan_switch = RamadanReminderSwitch(f"{prefix}_{CONF_RAMADAN_REMINDER_ENABLED}", entry, coordinator, default=False)
     ramadan_switch._attr_icon = "mdi:bell-plus"
     entities.append(ramadan_switch)
+    entity_registry.register_entity(ENTITY_KEY_RAMADAN_REMINDER_ENABLED, ramadan_switch)
 
     car_switch = CarStartSwitch(f"{prefix}_{CONF_CAR_START_ENABLED}", entry, coordinator, default=False)
     car_switch._attr_icon = "mdi:car"
     entities.append(car_switch)
+    entity_registry.register_entity(ENTITY_KEY_CAR_START_ENABLED, car_switch)
 
     water_switch = WaterRecircSwitch(f"{prefix}_{CONF_WATER_RECIRC_ENABLED}", entry, coordinator, default=False)
     water_switch._attr_icon = "mdi:water-pump"
     entities.append(water_switch)
+    entity_registry.register_entity(ENTITY_KEY_WATER_RECIRC_ENABLED, water_switch)
 
     async_add_entities(entities)
 

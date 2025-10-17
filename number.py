@@ -15,6 +15,7 @@ from .const import (
     CAR_START_MINUTES_DEFAULT,
     WATER_RECIRC_MINUTES_DEFAULT,
     RAMADAN_REMINDER_MINUTES_DEFAULT,
+    AZAN_VOLUME_DEFAULT,
     CAR_WATER_MINUTES_MIN,
     CAR_WATER_MINUTES_MAX,
     RAMADAN_REMINDER_MIN,
@@ -29,28 +30,45 @@ from .const import (
     CONF_AZAN_VOLUME_MAGHRIB,
     CONF_AZAN_VOLUME_ISHA,
     CONF_AZAN_VOLUME_TEST,
+    ENTITY_KEY_CAR_START_MINUTES,
+    ENTITY_KEY_WATER_RECIRC_MINUTES,
+    ENTITY_KEY_RAMADAN_REMINDER_MINUTES,
+    ENTITY_KEY_AZAN_VOLUME_BASE,
 )
+from .helpers import MasjidEntityRegistry
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     # Get coordinator
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    entity_registry: MasjidEntityRegistry = hass.data[DOMAIN][entry.entry_id]["entity_registry"]
 
     # Get sanitized prefix for entity IDs
     prefix = coordinator.get_effective_mosque_name()
 
     entities: list[NumberEntity] = []
     for p in PRAYERS:
-        entities.append(AzanVolumeNumber(f"{prefix}_{p}_{CONF_AZAN_VOLUME_BASE}", entry, p, coordinator))
+        entity = AzanVolumeNumber(f"{prefix}_{p}_{CONF_AZAN_VOLUME_BASE}", entry, p, coordinator)
+        entities.append(entity)
+        entity_registry.register_entity(f"{ENTITY_KEY_AZAN_VOLUME_BASE}_{p}", entity)
 
-    entities.append(CarStartMinutesNumber(f"{prefix}_{CONF_CAR_START_MINUTES}", entry, coordinator))
-    entities.append(WaterRecircMinutesNumber(f"{prefix}_{CONF_WATER_RECIRC_MINUTES}", entry, coordinator))
-    entities.append(RamadanReminderMinutesNumber(f"{prefix}_{CONF_RAMADAN_REMINDER_MINUTES}", entry, coordinator))
+    car_start_entity = CarStartMinutesNumber(f"{prefix}_{CONF_CAR_START_MINUTES}", entry, coordinator)
+    entities.append(car_start_entity)
+    entity_registry.register_entity(ENTITY_KEY_CAR_START_MINUTES, car_start_entity)
+
+    water_recirc_entity = WaterRecircMinutesNumber(f"{prefix}_{CONF_WATER_RECIRC_MINUTES}", entry, coordinator)
+    entities.append(water_recirc_entity)
+    entity_registry.register_entity(ENTITY_KEY_WATER_RECIRC_MINUTES, water_recirc_entity)
+
+    ramadan_reminder_entity = RamadanReminderMinutesNumber(f"{prefix}_{CONF_RAMADAN_REMINDER_MINUTES}", entry, coordinator)
+    entities.append(ramadan_reminder_entity)
+    entity_registry.register_entity(ENTITY_KEY_RAMADAN_REMINDER_MINUTES, ramadan_reminder_entity)
 
     # Add diagnostic test azan volume entity
     test_volume_entity = AzanVolumeNumber(f"{prefix}_test_{CONF_AZAN_VOLUME_BASE}", entry, "test", coordinator)
     test_volume_entity._attr_entity_category = EntityCategory.DIAGNOSTIC
     entities.append(test_volume_entity)
+    entity_registry.register_entity(f"{ENTITY_KEY_AZAN_VOLUME_BASE}_test", test_volume_entity)
 
     async_add_entities(entities)
 
@@ -102,7 +120,7 @@ class AzanVolumeNumber(BaseMasjidNumber):
         self._attr_translation_key = "azan_volume"
         self._attr_translation_placeholders = {"prayer": prayer.title()}
         # Load saved value or use default
-        self._value = entry.options.get(self._get_config_key(), 50)
+        self._value = entry.options.get(self._get_config_key(), AZAN_VOLUME_DEFAULT)
 
     def _get_config_key(self) -> str:
         prayer_to_config = {

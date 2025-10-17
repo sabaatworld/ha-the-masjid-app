@@ -10,9 +10,21 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN
+from .const import (
+    DOMAIN,
+    ENTITY_KEY_FORCE_REFRESH,
+    ENTITY_KEY_TEST_AZAN,
+    ENTITY_KEY_TEST_AZAN_SCHEDULE,
+    ENTITY_KEY_TEST_PRAYER_SCHEDULE,
+    ENTITY_KEY_CAR_START_MINUTES,
+    ENTITY_KEY_WATER_RECIRC_MINUTES,
+    ENTITY_KEY_RAMADAN_REMINDER_MINUTES,
+    CAR_START_MINUTES_DEFAULT,
+    WATER_RECIRC_MINUTES_DEFAULT,
+    RAMADAN_REMINDER_MINUTES_DEFAULT,
+)
 from .coordinator import MasjidDataCoordinator
-from .utils import get_number
+from .helpers import MasjidEntityRegistry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -24,14 +36,25 @@ async def async_setup_entry(
 ) -> None:
     """Set up the button entities from a config entry."""
     coordinator: MasjidDataCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    entity_registry: MasjidEntityRegistry = hass.data[DOMAIN][entry.entry_id]["entity_registry"]
 
     # Create button entities
-    button_entities = [
-        ForceRefreshButton(coordinator),
-        TestAzanButton(coordinator, entry),
-        TestAzanScheduleButton(coordinator, entry),
-        TestPrayerScheduleButton(coordinator, entry),
-    ]
+    button_entities = []
+    force_refresh_entity = ForceRefreshButton(coordinator)
+    button_entities.append(force_refresh_entity)
+    entity_registry.register_entity(ENTITY_KEY_FORCE_REFRESH, force_refresh_entity)
+
+    test_azan_entity = TestAzanButton(coordinator, entry)
+    button_entities.append(test_azan_entity)
+    entity_registry.register_entity(ENTITY_KEY_TEST_AZAN, test_azan_entity)
+
+    test_azan_schedule_entity = TestAzanScheduleButton(coordinator, entry)
+    button_entities.append(test_azan_schedule_entity)
+    entity_registry.register_entity(ENTITY_KEY_TEST_AZAN_SCHEDULE, test_azan_schedule_entity)
+
+    test_prayer_schedule_entity = TestPrayerScheduleButton(coordinator, entry)
+    button_entities.append(test_prayer_schedule_entity)
+    entity_registry.register_entity(ENTITY_KEY_TEST_PRAYER_SCHEDULE, test_prayer_schedule_entity)
 
     async_add_entities(button_entities)
 
@@ -186,19 +209,15 @@ class TestPrayerScheduleButton(ButtonEntity):
             test_data["masjid"] = {}
 
         # Get current offset values from number entities
-        prefix = self.coordinator.get_effective_mosque_name()
+        entity_registry: MasjidEntityRegistry = self.hass.data[DOMAIN][self._entry.entry_id]["entity_registry"]
+        car_mins_entity = entity_registry.get_entity(ENTITY_KEY_CAR_START_MINUTES)
+        car_mins = max(0, int(car_mins_entity.native_value if car_mins_entity else CAR_START_MINUTES_DEFAULT))
 
-        # Get car start offset (default 10 minutes)
-        car_mins_entity = f"number.{prefix}_car_start_minutes"
-        car_mins = max(0, int(get_number(self.hass, car_mins_entity, 10.0)))
+        water_mins_entity = entity_registry.get_entity(ENTITY_KEY_WATER_RECIRC_MINUTES)
+        water_mins = max(0, int(water_mins_entity.native_value if water_mins_entity else WATER_RECIRC_MINUTES_DEFAULT))
 
-        # Get water recirculation offset (default 15 minutes)
-        water_mins_entity = f"number.{prefix}_water_recirc_minutes"
-        water_mins = max(0, int(get_number(self.hass, water_mins_entity, 15.0)))
-
-        # Get ramadan reminder offset (default 2 minutes, only for maghrib)
-        ramadan_mins_entity = f"number.{prefix}_ramadan_reminder_minutes"
-        ramadan_mins = max(0, int(get_number(self.hass, ramadan_mins_entity, 2.0)))
+        ramadan_mins_entity = entity_registry.get_entity(ENTITY_KEY_RAMADAN_REMINDER_MINUTES)
+        ramadan_mins = max(0, int(ramadan_mins_entity.native_value if ramadan_mins_entity else RAMADAN_REMINDER_MINUTES_DEFAULT))
 
         # Find the largest offset
         largest_offset = max(car_mins, water_mins, ramadan_mins)

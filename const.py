@@ -42,6 +42,7 @@ CONF_AZAN_VOLUME_ISHA: Final[str] = f"{CONF_AZAN_VOLUME_BASE}_isha"
 CONF_AZAN_VOLUME_TEST: Final[str] = f"{CONF_AZAN_VOLUME_BASE}_test"
 
 DEFAULT_REFRESH_INTERVAL_HOURS: Final[int] = 6
+AZAN_VOLUME_DEFAULT: Final[int] = 50
 
 VOLUME_STEPS: Final[int] = 5
 VOLUME_MIN: Final[int] = 0
@@ -60,3 +61,23 @@ PRAYERS: list[str] = ["fajr", "dhuhr", "asr", "maghrib", "isha", "test"]
 
 # Map prayer names to JSON response keys.
 AZAN_NAME_MAP: dict[str, str] = {"fajr": "fajr", "dhuhr": "zuhr", "asr": "asr", "maghrib": "maghrib", "isha": "isha", "test": "test"}
+
+# Entity Registry Keys
+ENTITY_KEY_CAR_START_MINUTES: Final[str] = f"number_{CONF_CAR_START_MINUTES}"
+ENTITY_KEY_WATER_RECIRC_MINUTES: Final[str] = f"number_{CONF_WATER_RECIRC_MINUTES}"
+ENTITY_KEY_RAMADAN_REMINDER_MINUTES: Final[str] = f"number_{CONF_RAMADAN_REMINDER_MINUTES}"
+ENTITY_KEY_AZAN_VOLUME_BASE: Final[str] = f"number_{CONF_AZAN_VOLUME_BASE}"
+
+ENTITY_KEY_AZAN_ENABLED: Final[str] = f"switch_{CONF_AZAN_ENABLED}"
+ENTITY_KEY_CAR_START_ENABLED: Final[str] = f"switch_{CONF_CAR_START_ENABLED}"
+ENTITY_KEY_WATER_RECIRC_ENABLED: Final[str] = f"switch_{CONF_WATER_RECIRC_ENABLED}"
+ENTITY_KEY_RAMADAN_REMINDER_ENABLED: Final[str] = f"switch_{CONF_RAMADAN_REMINDER_ENABLED}"
+
+ENTITY_KEY_LAST_FETCH_TIME: Final[str] = "sensor_last_fetch_time"
+ENTITY_KEY_LAST_CACHE_TIME: Final[str] = "sensor_last_cache_time"
+ENTITY_KEY_PRAYER_TIME_BASE: Final[str] = "sensor_prayer_time"
+
+ENTITY_KEY_FORCE_REFRESH: Final[str] = "button_force_refresh"
+ENTITY_KEY_TEST_AZAN: Final[str] = "button_test_azan"
+ENTITY_KEY_TEST_AZAN_SCHEDULE: Final[str] = "button_test_azan_schedule"
+ENTITY_KEY_TEST_PRAYER_SCHEDULE: Final[str] = "button_test_prayer_schedule"
