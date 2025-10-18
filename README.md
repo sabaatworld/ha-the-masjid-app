@@ -28,7 +28,18 @@ The Masjid App integration for Home Assistant brings your local mosque's prayer 
 
 ## Installation
 
-1.  Copy the `ha_the_masjid_app` folder into your Home Assistant `config/custom_components/` directory.
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=sabaatworld&repository=ha-the-masjid-app&category=integration)
+
+### HACS (Recommended)
+
+1.  Add this repository to HACS as a custom repository.
+2.  Search for "The Masjid App" integration in HACS and install it.
+3.  Restart Home Assistant.
+4.  Go to **Settings → Devices & Services → Add Integration** and search for "The Masjid App".
+
+### Manual Installation
+
+1.  Copy the `custom_components/ha_the_masjid_app` folder into your Home Assistant `config/` directory.
 2.  Restart Home Assistant.
 3.  Go to **Settings → Devices & Services → Add Integration** and search for "The Masjid App".
 
@@ -79,6 +90,18 @@ This integration creates the following entities, all prefixed with a sanitized v
 -   **Scheduling**: The integration's scheduler automatically updates when new prayer times are fetched or when any of the minute-offset numbers are changed.
 -   **Caching**: If the integration cannot fetch new prayer times, it will use the last successfully fetched data from its cache.
 -   **Entity Naming**: The mosque name is sanitized to create valid and unique entity IDs.
+
+## Development Setup
+
+For developers, the easiest way to set up a development environment is to clone this repository into your Home Assistant `config` directory and then create a symbolic link to the `custom_components` directory.
+
+If you have placed this repository at `/config/workplace/ha_the_masjid_app` within your Home Assistant OS environment, you can use the following command to create the symlink:
+
+```bash
+ln -s /config/workplace/ha_the_masjid_app/custom_components/ha_the_masjid_app /config/custom_components/ha_the_masjid_app
+```
+
+After creating the link, restart Home Assistant to load the custom component.
 
 ## Support & Contribution
 
