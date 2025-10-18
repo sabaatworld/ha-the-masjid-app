@@ -8,6 +8,8 @@
 
 The Masjid App integration for Home Assistant brings your local mosque's prayer schedule right into your smart home. By fetching prayer times from `themasjidapp.net`, this integration allows you to create powerful automations, such as playing the Azan, preparing your home for prayer, and receiving timely reminders.
 
+**Note**: This is an unofficial integration and is not affiliated with `themasjidapp.net`.
+
 ## Key Features
 
 - **Prayer Time Sensors**: Creates sensors for both Azan and Iqama times for all daily prayers.
@@ -21,10 +23,6 @@ The Masjid App integration for Home Assistant brings your local mosque's prayer 
 - **Ramadan Reminders**: Get a special TTS reminder before Maghrib prayer during the month of Ramadan.
 - **Fully UI-Configurable**: No YAML required. Set up and manage the integration entirely through the Home Assistant UI.
 - **Robust & Resilient**: Caches prayer times to ensure automations run even if the server is temporarily unavailable.
-
-## Screenshots
-
-*(Placeholder for screenshots of the integration's configuration and entities)*
 
 ## Installation
 
