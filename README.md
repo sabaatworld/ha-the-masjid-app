@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="icon.svg" alt="The Masjid App" width="96" height="96">
+  <img src="img/icon.svg" alt="The Masjid App" width="96" height="96">
   <h1>The Masjid App</h1>
   <p><em>Home Assistant custom integration</em></p>
 </div>
