@@ -24,6 +24,34 @@ The Masjid App integration for Home Assistant brings your local mosque's prayer 
 - **Fully UI-Configurable**: No YAML required. Set up and manage the integration entirely through the Home Assistant UI.
 - **Robust & Resilient**: Caches prayer times to ensure automations run even if the server is temporarily unavailable.
 
+## Prayer Times Card
+
+This integration includes a Lovelace card to display the daily prayer times in a convenient tabular format.
+
+<img src="img/card-screenshot.png" alt="Prayer Times Card Screenshot" width="300">
+
+### Card Features
+
+- Displays Azan and Iqama times for all five daily prayers.
+- Automatically fetches times from the integration's sensors.
+- Simple and clean interface.
+
+### Card Configuration
+
+To add the card to your Lovelace dashboard, follow these steps:
+
+1.  Go to your Lovelace dashboard and click the three dots in the top-right corner to enter **Edit Dashboard** mode.
+2.  Click the **+ ADD CARD** button.
+3.  Search for "Custom: Prayer Times Card" and select it.
+4.  In the card configuration, you'll need to specify a sensor entity. You can use any of the prayer time sensors created by the integration (e.g., `sensor.your_mosque_fajr_azan`). The card will automatically determine the mosque name from the entity.
+
+    ```yaml
+    type: custom:prayer-times-card
+    entity: sensor.your_mosque_fajr_azan
+    ```
+
+5.  Click **SAVE**.
+
 ## Installation
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=sabaatworld&repository=ha-the-masjid-app&category=integration)
@@ -91,15 +119,38 @@ This integration creates the following entities, all prefixed with a sanitized v
 
 ## Development Setup
 
-For developers, the easiest way to set up a development environment is to clone this repository into your Home Assistant `config` directory and then create a symbolic link to the `custom_components` directory.
+For developers, the easiest way to set up a development environment is to clone this repository into your Home Assistant `config` directory.
 
-If you have placed this repository at `/config/workplace/ha_the_masjid_app` within your Home Assistant OS environment, you can use the following command to create the symlink:
+### Backend Development
+
+To test changes to the integration backend, create a symbolic link to the `custom_components` directory:
 
 ```bash
+# Link the integration
 ln -s /config/workplace/ha_the_masjid_app/custom_components/ha_the_masjid_app /config/custom_components/ha_the_masjid_app
 ```
 
 After creating the link, restart Home Assistant to load the custom component.
+
+### Frontend Development
+
+To test changes to the Lovelace card, you'll need to add it as a custom resource in your Lovelace dashboard.
+
+1.  Go to **Settings → Dashboards**.
+2.  Click the three dots in the top-right corner and select **Resources**.
+3.  Click **+ ADD RESOURCE**.
+4.  Set the **URL** to `/local/prayer-times-card.js`.
+5.  Set the **Resource Type** to **JavaScript Module**.
+6.  Click **CREATE**.
+
+To make the card available at that URL, create a symbolic link from your `config/www` directory to the card's source file:
+
+```bash
+# Hard link the card (soft link) would not work
+ln /config/workplace/ha_the_masjid_app/frontend/prayer-times-card.js /config/www/prayer-times-card.js
+```
+
+After creating the link, you may need to clear your browser cache for the changes to take effect.
 
 ## Support & Contribution
 

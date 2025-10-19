@@ -146,6 +146,26 @@ class LastCacheTimeSensor(SensorEntity):
         self.async_write_ha_state()
 
 
+def _format_time(time_str: str | None) -> str | None:
+    """Format time to be padded."""
+    if time_str:
+        time_str = time_str.strip()
+    if not time_str:
+        return None
+    try:
+        # Try parsing with AM/PM first
+        time_obj = datetime.strptime(time_str, "%I:%M %p")
+    except ValueError:
+        try:
+            # Fallback to 24-hour format
+            time_obj = datetime.strptime(time_str, "%H:%M")
+        except ValueError:
+            # If parsing fails, return original string
+            return time_str
+    # Format back to 12-hour format with zero-padded hour
+    return time_obj.strftime("%I:%M %p")
+
+
 class PrayerTimeSensor(SensorEntity):
     """Representation of a prayer time sensor."""
 
@@ -191,7 +211,7 @@ class PrayerTimeSensor(SensorEntity):
 
             time_str = iqama_times.get(self._prayer)
 
-        return time_str
+        return _format_time(time_str)
 
     async def async_added_to_hass(self) -> None:
         """When entity is added to hass."""
