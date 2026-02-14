@@ -5,6 +5,7 @@
       "user": {
         "title": "Set Up The Masjid App",
         "data": {
+          "prayer_time_provider": "Prayer Time Provider",
           "masjid_id": "Masjid ID",
           "refresh_interval_hours": "Refresh Interval",
           "media_player": "Media Player for Azan",
@@ -19,7 +20,8 @@
           "tts_entity": "TTS Entity for Ramadan Reminder"
         },
         "data_description": {
-          "masjid_id": "The numeric ID of your masjid from themasjidapp.net. You can find this in the URL when viewing your masjid's page (e.g., themasjidapp.net/123 where 123 is the Masjid ID).",
+          "prayer_time_provider": "Select which provider to use for your masjid prayer time configuration. Choose The Masjid App for themasjidapp.net IDs, or Madina Apps for madinaapps.com aliases.",
+          "masjid_id": "Provider-specific masjid identifier. For The Masjid App, enter the masjid ID from themasjidapp.net (for example, 123 from themasjidapp.net/123). For Madina Apps, enter the masjid alias used in madinaapps.com service URLs (for example, friscomasjid).",
           "refresh_interval_hours": "How frequently to fetch updated prayer times from the server. Choose between 1-12 hours. More frequent updates ensure accurate times but use more data. Recommended: 6 hours for most users.",
           "media_player": "Select the media player entity that will play the Azan audio. This should be a media_player entity (e.g., living_room_speaker, bedroom_tv). Leave empty if you don't want Azan playback.",
           "media_data": "Select the media content to play for Azan (optional). This can be a local file, URL, or media source. Leave empty to disable Azan audio playback. The media selector will help you browse available options and store the complete media information.",
@@ -64,12 +66,13 @@
       }
     },
     "error": {
-      "cannot_connect": "Failed to connect to themasjidapp.net",
-      "invalid_masjid_id": "Invalid Masjid ID - server returned an error",
+      "cannot_connect": "Failed to connect to prayer time provider",
+      "invalid_masjid_id": "Invalid masjid ID",
+      "invalid_provider": "Invalid prayer time provider selected",
       "unknown": "Unexpected error occurred"
     },
     "abort": {
-      "already_configured": "Integration already configured for this Masjid ID",
+      "already_configured": "Integration already configured for this provider and masjid identifier",
       "reconfigure_successful": "Successfully updated The Masjid App configuration."
     }
   },

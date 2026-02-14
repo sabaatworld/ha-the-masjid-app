@@ -10,13 +10,23 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, CONF_DEVICE_ID, CONF_MASJID_NAME
+from .const import (
+    DOMAIN,
+    CONF_DEVICE_ID,
+    CONF_MASJID_NAME,
+    CONF_MADINA_APPS_CLIENT_ID,
+    CONF_PRAYER_TIME_PROVIDER,
+    PRAYER_TIME_PROVIDER_THEMASJIDAPP,
+    PRAYER_TIME_PROVIDER_MADINAAPP,
+    PRAYER_TIME_PROVIDER_NAME_THEMASJIDAPP,
+    PRAYER_TIME_PROVIDER_NAME_MADINAAPP,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class MasjidDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
-    def __init__(self, hass: HomeAssistant, masjid_id: int, update_interval: timedelta, config_entry):
+    def __init__(self, hass: HomeAssistant, masjid_id: str, update_interval: timedelta, config_entry):
         super().__init__(
             hass,
             _LOGGER,
@@ -25,6 +35,8 @@ class MasjidDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self._masjid_id = masjid_id
         self._config_entry = config_entry
+        self._provider = config_entry.data.get(CONF_PRAYER_TIME_PROVIDER, PRAYER_TIME_PROVIDER_THEMASJIDAPP)
+        self._madina_apps_client_id = config_entry.data.get(CONF_MADINA_APPS_CLIENT_ID)
         self._cached: dict[str, Any] | None = None
         self._last_successful_fetch: datetime | None = None
         self._last_successful_cache: datetime | None = None
@@ -84,7 +96,13 @@ class MasjidDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     def get_mosque_name(self) -> str | None:
         """Get the mosque name from the current data."""
-        if not self.data or "masjid" not in self.data:
+        if not self.data:
+            return None
+
+        if self._provider == PRAYER_TIME_PROVIDER_MADINAAPP:
+            return self.data.get("masjid", {}).get("name") or self.data.get("clientName")
+
+        if "masjid" not in self.data:
             return None
 
         return self.data["masjid"].get("name")
@@ -104,17 +122,25 @@ class MasjidDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Final fallback if no data yet
         return "Masjid"
 
-    def get_masjid_id(self) -> int:
+    def get_masjid_id(self) -> str:
         """Get the masjid ID from the config entry."""
         return self._masjid_id
 
     def get_device_info(self) -> dict[str, Any]:
         """Get device info for all entities in this integration."""
+        provider_name = (
+            PRAYER_TIME_PROVIDER_NAME_MADINAAPP
+            if self._provider == PRAYER_TIME_PROVIDER_MADINAAPP
+            else PRAYER_TIME_PROVIDER_NAME_THEMASJIDAPP
+        )
+
+        model = f"Masjid ID: {self.get_masjid_id()}"
+
         return {
             "identifiers": {(DOMAIN, self.get_device_id())},
             "name": self.get_effective_mosque_name(),
-            "manufacturer": "The Masjid App",
-            "model": f"Masjid ID: {self.get_masjid_id()}",
+            "manufacturer": provider_name,
+            "model": model,
         }
 
     def ensure_masjid_name_persisted(self) -> None:
@@ -142,14 +168,132 @@ class MasjidDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         return device_id
 
+    @staticmethod
+    def _normalize_time_value(value: Any) -> str | None:
+        """Normalize a time value to a non-empty string."""
+        if not isinstance(value, str):
+            return None
+
+        normalized = value.strip()
+        return normalized or None
+
+    @staticmethod
+    def _parse_time_for_today(time_str: str, now_local: datetime) -> datetime | None:
+        """Parse a time string into a datetime on the same local day as now_local."""
+        normalized = time_str.strip().upper()
+        formats = ("%I:%M %p", "%H:%M")
+
+        for fmt in formats:
+            try:
+                parsed = datetime.strptime(normalized, fmt)
+                return now_local.replace(
+                    hour=parsed.hour,
+                    minute=parsed.minute,
+                    second=0,
+                    microsecond=0,
+                )
+            except ValueError:
+                continue
+
+        return None
+
+    def _has_time_passed(self, time_str: str | None, now_local: datetime) -> bool:
+        """Return True when a local time string has already passed today."""
+        if not time_str:
+            return False
+
+        parsed = self._parse_time_for_today(time_str, now_local)
+        if parsed is None:
+            return False
+
+        return now_local >= parsed
+
+    def _extract_madina_prayer_time(
+        self,
+        day_entry: dict[str, Any],
+        prayer_key: str,
+        time_key: str,
+    ) -> str | None:
+        """Extract a Madina prayer time field from a single day entry."""
+        prayer_data = day_entry.get(prayer_key)
+        if not isinstance(prayer_data, dict):
+            return None
+
+        return self._normalize_time_value(prayer_data.get(time_key))
+
+    def _normalize_madina_payload(self, raw_data: dict[str, Any]) -> dict[str, Any]:
+        """Normalize Madina prayerTimes response into canonical masjid payload shape."""
+        prayer_times = raw_data.get("prayerTimes")
+        if not isinstance(prayer_times, list) or not prayer_times:
+            raise UpdateFailed("Madina Apps response missing prayerTimes list")
+
+        today_entry = prayer_times[0] if isinstance(prayer_times[0], dict) else {}
+        tomorrow_entry = (
+            prayer_times[1]
+            if len(prayer_times) > 1 and isinstance(prayer_times[1], dict)
+            else today_entry
+        )
+
+        now_local = dt_util.now()
+        azan_times: dict[str, str] = {}
+        iqama_times: dict[str, str] = {}
+
+        for prayer_key in ("fajr", "dhuhr", "asr", "maghrib", "isha"):
+            canonical_key = "zuhr" if prayer_key == "dhuhr" else prayer_key
+
+            today_iqamah = self._extract_madina_prayer_time(
+                today_entry,
+                prayer_key,
+                "iqamahTime",
+            )
+            source_entry = tomorrow_entry if self._has_time_passed(today_iqamah, now_local) else today_entry
+
+            adhaan_time = self._extract_madina_prayer_time(source_entry, prayer_key, "adhaanTime")
+            iqamah_time = self._extract_madina_prayer_time(source_entry, prayer_key, "iqamahTime")
+
+            if adhaan_time:
+                azan_times[canonical_key] = adhaan_time
+            if iqamah_time:
+                iqama_times[canonical_key] = iqamah_time
+
+        # Sunrise has no iqamah; compare sunrise itself for per-prayer rollover.
+        today_sunrise = self._normalize_time_value(today_entry.get("sunrise"))
+        sunrise_entry = tomorrow_entry if self._has_time_passed(today_sunrise, now_local) else today_entry
+        sunrise_time = self._normalize_time_value(sunrise_entry.get("sunrise"))
+        if sunrise_time:
+            azan_times["sunrise"] = sunrise_time
+
+        masjid_name = self._config_entry.data.get(CONF_MASJID_NAME)
+
+        masjid_data: dict[str, Any] = {
+            "name": masjid_name,
+            "azan": azan_times,
+        }
+        masjid_data.update(iqama_times)
+
+        return {"masjid": masjid_data}
+
     async def _async_update_data(self) -> dict[str, Any]:
-        url = f"http://themasjidapp.net/{self._masjid_id}"
+        if self._provider == PRAYER_TIME_PROVIDER_MADINAAPP:
+            today = dt_util.now().date()
+            tomorrow = today + timedelta(days=1)
+            url = (
+                "https://services.madinaapps.com/kiosk-rest/clients/"
+                f"{self._madina_apps_client_id}/prayerTimes"
+                f"?fromDate={today.isoformat()}&toDate={tomorrow.isoformat()}"
+            )
+        else:
+            url = f"http://themasjidapp.net/{self._masjid_id}"
+
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, timeout=10) as resp:
                     if resp.status != 200:
                         raise UpdateFailed(f"HTTP {resp.status}")
                     data: dict[str, Any] = await resp.json()
+
+            if self._provider == PRAYER_TIME_PROVIDER_MADINAAPP:
+                data = self._normalize_madina_payload(data)
         except Exception as err:  # noqa: BLE001
             if self._cached is not None:
                 _LOGGER.warning("Fetch failed (%s); using cached response", err)

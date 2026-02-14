@@ -26,6 +26,8 @@ from .const import (
     CONF_DEVICE_ID,
     CONF_MASJID_ID,
     CONF_MASJID_NAME,
+    CONF_PRAYER_TIME_PROVIDER,
+    CONF_MADINA_APPS_CLIENT_ID,
     CONF_REFRESH_INTERVAL_HOURS,
     CONF_MEDIA_PLAYER,
     CONF_MEDIA_DATA,
@@ -37,6 +39,8 @@ from .const import (
     CONF_ACTION_CAR_START_PARAMS,
     CONF_PRESENCE_SENSORS,
     CONF_TTS_ENTITY,
+    PRAYER_TIME_PROVIDER_THEMASJIDAPP,
+    PRAYER_TIME_PROVIDER_MADINAAPP,
 )
 # Import safe_slug for use in coordinator
 
@@ -126,46 +130,119 @@ class MasjidAppConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Get default value for a configuration key."""
         return self._DEFAULTS.get(key, "")
 
-    async def _async_validate_masjid_id(self, masjid_id: int) -> tuple[str | None, str | None]:
+    @staticmethod
+    def _normalize_masjid_id(masjid_id: str) -> str:
+        """Normalize masjid ID for comparisons and unique IDs."""
+        return masjid_id.strip().lower()
+
+    def _build_unique_id(self, provider: str, masjid_id: str) -> str:
+        """Build a unique ID using provider prefix and masjid ID."""
+        normalized_masjid_id = self._normalize_masjid_id(masjid_id)
+        return f"{DOMAIN}_{provider}_{normalized_masjid_id}"
+
+    async def _async_validate_masjid_id(
+        self,
+        provider: str,
+        masjid_id: str,
+    ) -> tuple[str | None, int | None, str | None]:
         """Validate masjid ID by fetching data from server.
 
         Returns:
-            Tuple of (masjid_name, error_key)
-            If successful: (masjid_name, None)
-            If error: (None, error_key)
+            Tuple of (masjid_name, madina_apps_client_id, error_key)
+            If successful: (masjid_name, madina_apps_client_id, None)
+            If error: (None, None, error_key)
         """
-        url = f"http://themasjidapp.net/{masjid_id}"
+        if provider == PRAYER_TIME_PROVIDER_THEMASJIDAPP:
+            url = f"http://themasjidapp.net/{masjid_id}"
+        elif provider == PRAYER_TIME_PROVIDER_MADINAAPP:
+            url = f"https://services.madinaapps.com/kiosk-rest/clients/{masjid_id}/settingsbyalias"
+        else:
+            return None, None, "invalid_provider"
+
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, timeout=10) as resp:
                     if resp.status != 200:
-                        _LOGGER.warning("HTTP %d when validating masjid ID %d", resp.status, masjid_id)
-                        return None, "invalid_masjid_id"
+                        _LOGGER.warning(
+                            "HTTP %d when validating provider '%s' masjid ID '%s'",
+                            resp.status,
+                            provider,
+                            masjid_id,
+                        )
+                        return None, None, "invalid_masjid_id"
 
                     data = await resp.json()
 
-                    # Extract masjid name from response
-                    masjid_data = data.get("masjid", {})
-                    masjid_name = masjid_data.get("name")
+                    if provider == PRAYER_TIME_PROVIDER_THEMASJIDAPP:
+                        # Extract masjid name from themasjidapp response
+                        masjid_data = data.get("masjid", {})
+                        masjid_name = masjid_data.get("name")
 
-                    if not masjid_name:
-                        _LOGGER.warning("No masjid name found in response for ID %d", masjid_id)
-                        return None, "invalid_masjid_id"
+                        if not masjid_name:
+                            _LOGGER.warning(
+                                "No masjid name found in themasjidapp response for ID '%s'",
+                                masjid_id,
+                            )
+                            return None, None, "invalid_masjid_id"
 
-                    return masjid_name, None
+                        return masjid_name, None, None
+
+                    # Extract masjid name and client ID from Madina Apps response
+                    masjid_name = data.get("clientName")
+                    madina_apps_client_id = data.get("clientId")
+
+                    if not masjid_name or madina_apps_client_id is None:
+                        _LOGGER.warning(
+                            "Missing clientName/clientId in Madina Apps response for alias '%s'",
+                            masjid_id,
+                        )
+                        return None, None, "invalid_masjid_id"
+
+                    return masjid_name, int(madina_apps_client_id), None
 
         except aiohttp.ClientError as err:
-            _LOGGER.error("Connection error validating masjid ID %d: %s", masjid_id, err)
-            return None, "cannot_connect"
+            _LOGGER.error(
+                "Connection error validating provider '%s' masjid ID '%s': %s",
+                provider,
+                masjid_id,
+                err,
+            )
+            return None, None, "cannot_connect"
         except Exception as err:  # noqa: BLE001
-            _LOGGER.exception("Unexpected error validating masjid ID %d: %s", masjid_id, err)
-            return None, "unknown"
+            _LOGGER.exception(
+                "Unexpected error validating provider '%s' masjid ID '%s': %s",
+                provider,
+                masjid_id,
+                err,
+            )
+            return None, None, "unknown"
 
     def _get_user_schema(self) -> vol.Schema:
         """Get schema for user setup flow."""
         return vol.Schema(
             {
-                vol.Required(CONF_MASJID_ID): int,
+                vol.Required(
+                    CONF_PRAYER_TIME_PROVIDER,
+                    default=PRAYER_TIME_PROVIDER_THEMASJIDAPP,
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        options=[
+                            {
+                                "value": PRAYER_TIME_PROVIDER_THEMASJIDAPP,
+                                "label": "The Masjid App",
+                            },
+                            {
+                                "value": PRAYER_TIME_PROVIDER_MADINAAPP,
+                                "label": "Madina Apps",
+                            },
+                        ],
+                        mode=SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Required(CONF_MASJID_ID): vol.All(
+                    vol.Coerce(str),
+                    vol.Length(min=1, max=50),
+                ),
                 vol.Required(CONF_REFRESH_INTERVAL_HOURS, default=self._get_default(CONF_REFRESH_INTERVAL_HOURS)): vol.All(
                     vol.Coerce(int), vol.Range(min=1, max=12)
                 ),
@@ -237,8 +314,18 @@ class MasjidAppConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
+            provider = user_input[CONF_PRAYER_TIME_PROVIDER]
+            masjid_id = str(user_input[CONF_MASJID_ID]).strip()
+
+            if not masjid_id:
+                errors["base"] = "invalid_masjid_id"
+                return self.async_show_form(step_id="user", data_schema=self._get_user_schema(), errors=errors)
+
+            # Keep a sanitized value in options
+            user_input[CONF_MASJID_ID] = masjid_id
+
             # Validate masjid ID by making API request
-            masjid_name, error_key = await self._async_validate_masjid_id(user_input[CONF_MASJID_ID])
+            masjid_name, madina_apps_client_id, error_key = await self._async_validate_masjid_id(provider, masjid_id)
 
             if error_key:
                 errors["base"] = error_key
@@ -246,19 +333,25 @@ class MasjidAppConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 # Use masjid name as title
                 title = masjid_name
 
-                await self.async_set_unique_id(f"{DOMAIN}_{user_input[CONF_MASJID_ID]}")
+                await self.async_set_unique_id(self._build_unique_id(provider, masjid_id))
                 self._abort_if_unique_id_configured()
 
                 # Generate a persistent device ID that won't change across reloads or option changes
                 device_id = str(uuid.uuid4())
 
+                entry_data: dict[str, Any] = {
+                    CONF_DEVICE_ID: device_id,
+                    CONF_MASJID_NAME: masjid_name,
+                    CONF_PRAYER_TIME_PROVIDER: provider,
+                }
+
+                if provider == PRAYER_TIME_PROVIDER_MADINAAPP and madina_apps_client_id is not None:
+                    entry_data[CONF_MADINA_APPS_CLIENT_ID] = madina_apps_client_id
+
                 return self.async_create_entry(
                     title=title,
-                    data={
-                        CONF_DEVICE_ID: device_id,
-                        CONF_MASJID_NAME: masjid_name,
-                    },
-                    options=user_input
+                    data=entry_data,
+                    options=user_input,
                 )
 
         return self.async_show_form(step_id="user", data_schema=self._get_user_schema(), errors=errors)
