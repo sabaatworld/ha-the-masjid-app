@@ -7,6 +7,8 @@ DOMAIN: Final[str] = "ha_the_masjid_app"
 CONF_DEVICE_ID: Final[str] = "device_id"
 CONF_MASJID_ID: Final[str] = "masjid_id"
 CONF_MASJID_NAME: Final[str] = "masjid_name"
+CONF_PRAYER_TIME_PROVIDER: Final[str] = "prayer_time_provider"
+CONF_MADINA_APPS_CLIENT_ID: Final[str] = "madina_apps_client_id"
 CONF_REFRESH_INTERVAL_HOURS: Final[str] = "refresh_interval_hours"
 CONF_MEDIA_PLAYER: Final[str] = "media_player"
 CONF_MEDIA_DATA: Final[str] = "media_data"
@@ -18,6 +20,12 @@ CONF_ACTION_WATER_RECIRCULATION_PARAMS: Final[str] = "action_water_recirculation
 CONF_ACTION_CAR_START_PARAMS: Final[str] = "action_car_start_params"
 CONF_PRESENCE_SENSORS: Final[str] = "presence_sensors"
 CONF_TTS_ENTITY: Final[str] = "tts_entity"
+
+PRAYER_TIME_PROVIDER_THEMASJIDAPP: Final[str] = "themasjidapp"
+PRAYER_TIME_PROVIDER_MADINAAPP: Final[str] = "madinaapp"
+
+PRAYER_TIME_PROVIDER_NAME_THEMASJIDAPP: Final[str] = "The Masjid App"
+PRAYER_TIME_PROVIDER_NAME_MADINAAPP: Final[str] = "Madina Apps"
 
 # Entity settings that need to be persisted
 CONF_AZAN_ENABLED: Final[str] = "azan_enabled"

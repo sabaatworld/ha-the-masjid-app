@@ -10,13 +10,23 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, CONF_DEVICE_ID, CONF_MASJID_NAME
+from .const import (
+    DOMAIN,
+    CONF_DEVICE_ID,
+    CONF_MASJID_NAME,
+    CONF_MADINA_APPS_CLIENT_ID,
+    CONF_PRAYER_TIME_PROVIDER,
+    PRAYER_TIME_PROVIDER_THEMASJIDAPP,
+    PRAYER_TIME_PROVIDER_MADINAAPP,
+    PRAYER_TIME_PROVIDER_NAME_THEMASJIDAPP,
+    PRAYER_TIME_PROVIDER_NAME_MADINAAPP,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class MasjidDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
-    def __init__(self, hass: HomeAssistant, masjid_id: int, update_interval: timedelta, config_entry):
+    def __init__(self, hass: HomeAssistant, masjid_id: str, update_interval: timedelta, config_entry):
         super().__init__(
             hass,
             _LOGGER,
@@ -25,6 +35,8 @@ class MasjidDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self._masjid_id = masjid_id
         self._config_entry = config_entry
+        self._provider = config_entry.data.get(CONF_PRAYER_TIME_PROVIDER, PRAYER_TIME_PROVIDER_THEMASJIDAPP)
+        self._madina_apps_client_id = config_entry.data.get(CONF_MADINA_APPS_CLIENT_ID)
         self._cached: dict[str, Any] | None = None
         self._last_successful_fetch: datetime | None = None
         self._last_successful_cache: datetime | None = None
@@ -84,7 +96,13 @@ class MasjidDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     def get_mosque_name(self) -> str | None:
         """Get the mosque name from the current data."""
-        if not self.data or "masjid" not in self.data:
+        if not self.data:
+            return None
+
+        if self._provider == PRAYER_TIME_PROVIDER_MADINAAPP:
+            return self.data.get("masjid", {}).get("name") or self.data.get("clientName")
+
+        if "masjid" not in self.data:
             return None
 
         return self.data["masjid"].get("name")
@@ -104,17 +122,25 @@ class MasjidDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Final fallback if no data yet
         return "Masjid"
 
-    def get_masjid_id(self) -> int:
+    def get_masjid_id(self) -> str:
         """Get the masjid ID from the config entry."""
         return self._masjid_id
 
     def get_device_info(self) -> dict[str, Any]:
         """Get device info for all entities in this integration."""
+        provider_name = (
+            PRAYER_TIME_PROVIDER_NAME_MADINAAPP
+            if self._provider == PRAYER_TIME_PROVIDER_MADINAAPP
+            else PRAYER_TIME_PROVIDER_NAME_THEMASJIDAPP
+        )
+
+        model = f"Masjid ID: {self.get_masjid_id()}"
+
         return {
             "identifiers": {(DOMAIN, self.get_device_id())},
             "name": self.get_effective_mosque_name(),
-            "manufacturer": "The Masjid App",
-            "model": f"Masjid ID: {self.get_masjid_id()}",
+            "manufacturer": provider_name,
+            "model": model,
         }
 
     def ensure_masjid_name_persisted(self) -> None:

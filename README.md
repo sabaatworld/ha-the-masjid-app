@@ -6,9 +6,9 @@
 
 ## Introduction
 
-The Masjid App integration for Home Assistant brings your local mosque's prayer schedule right into your smart home. By fetching prayer times from `themasjidapp.net`, this integration allows you to create powerful automations, such as playing the Azan, preparing your home for prayer, and receiving timely reminders.
+The Masjid App integration for Home Assistant brings your local mosque's prayer schedule right into your smart home. By fetching prayer data from supported providers (`themasjidapp.net` and `madinaapps.com`), this integration allows you to create powerful automations, such as playing the Azan, preparing your home for prayer, and receiving timely reminders.
 
-**Note**: This is an unofficial integration and is not affiliated with `themasjidapp.net`.
+**Note**: This is an unofficial integration and is not affiliated with `themasjidapp.net` or `madinaapps.com`.
 
 ## Key Features
 
@@ -75,7 +75,8 @@ The integration is configured through the UI. Here are the available options:
 
 | Option                        | Required | Description                                                                                                                                                           |
 | ----------------------------- | :------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Masjid ID**                 |   Yes    | The numeric ID of your mosque from `themasjidapp.net`.                                                                                                                  |
+| **Prayer Time Provider**      |   Yes    | Select where to fetch your masjid configuration from: **The Masjid App** or **Madina Apps**.                                                                       |
+| **Masjid ID**                 |   Yes    | Provider-specific masjid identifier. For **The Masjid App**, use the masjid ID from `themasjidapp.net` (for example `123` from `themasjidapp.net/123`). For **Madina Apps**, use the masjid alias (for example `friscomasjid`). |
 | **Refresh Interval**          |   Yes    | How often (in hours) to fetch updated prayer times.                                                                                                                   |
 | **Media Player for Azan**     |    No    | The `media_player` entity that will play the Azan audio.                                                                                                              |
 | **Azan Media Content**        |    No    | The media content for the Azan (e.g., a local file or URL).                                                                                                           |
